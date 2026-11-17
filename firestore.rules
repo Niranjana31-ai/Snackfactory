@@ -1,0 +1,3090 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isBootstrappedOwner() {
+      return isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        request.auth.token.email == '727824tuad139@skct.edu.in';
+    }
+
+    function userDocExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function callerUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActiveErpUser() {
+      return isBootstrappedOwner() || (
+        isSignedIn() &&
+        userDocExists() &&
+        callerUser().status == 'Active'
+      );
+    }
+
+    function hasRole(allowedRoles) {
+      return isBootstrappedOwner() || (
+        isActiveErpUser() &&
+        callerUser().role in allowedRoles
+      );
+    }
+
+    function isOwnerOrAdmin() {
+      return hasRole(['Owner', 'Admin']);
+    }
+
+    function isValidRole(role) {
+      return role is string && role in [
+        'Owner',
+        'Admin',
+        'Salesman',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ];
+    }
+
+    function isValidStatus(status) {
+      return status is string && status in ['Active', 'Suspended'];
+    }
+
+    function isValidUsername(username) {
+      return username is string &&
+        username.size() >= 3 &&
+        username.size() <= 30 &&
+        username.matches('^[a-z0-9._\\-]+$');
+    }
+
+    function isValidUser(data, userId) {
+      return data.keys().hasAll([
+        'uid',
+        'displayName',
+        'email',
+        'role',
+        'department',
+        'status',
+        'createdAt',
+        'updatedAt',
+        'lastLoginAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid',
+        'username',
+        'displayName',
+        'email',
+        'photoURL',
+        'role',
+        'department',
+        'status',
+        'createdAt',
+        'updatedAt',
+        'lastLoginAt'
+      ]) &&
+      data.uid is string &&
+      data.uid == userId &&
+      isValidId(data.uid) &&
+      (!('username' in data) || isValidUsername(data.username)) &&
+      data.displayName is string &&
+      data.displayName.size() >= 1 &&
+      data.displayName.size() <= 100 &&
+      data.email is string &&
+      data.email.size() >= 3 &&
+      data.email.size() <= 254 &&
+      (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500)) &&
+      isValidRole(data.role) &&
+      data.department is string &&
+      data.department.size() >= 1 &&
+      data.department.size() <= 80 &&
+      isValidStatus(data.status) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp &&
+      data.lastLoginAt is timestamp;
+    }
+
+    function isValidGstin(gstin) {
+      return gstin is string && (
+        gstin.size() == 0 ||
+        (gstin.size() == 15 && gstin.matches('^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$'))
+      );
+    }
+
+    function isValidProduct(data, productId) {
+      return data.keys().hasAll([
+        'id',
+        'orgId',
+        'name',
+        'sku',
+        'category',
+        'description',
+        'packetSize',
+        'sellingPrice',
+        'gstPercentage',
+        'status',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id',
+        'orgId',
+        'name',
+        'sku',
+        'category',
+        'description',
+        'packetSize',
+        'sellingPrice',
+        'gstPercentage',
+        'hsnCode',
+        'status',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == productId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.name is string &&
+      data.name.size() >= 1 &&
+      data.name.size() <= 120 &&
+      data.sku is string &&
+      data.sku.size() >= 1 &&
+      data.sku.size() <= 40 &&
+      data.sku.matches('^[A-Z0-9\\-_]+$') &&
+      data.category is string &&
+      data.category.size() >= 1 &&
+      data.category.size() <= 60 &&
+      data.description is string &&
+      data.description.size() <= 500 &&
+      data.packetSize is string &&
+      data.packetSize.size() >= 1 &&
+      data.packetSize.size() <= 30 &&
+      (data.sellingPrice is int || data.sellingPrice is float) &&
+      data.sellingPrice >= 0 &&
+      data.sellingPrice <= 10000000 &&
+      (data.gstPercentage is int || data.gstPercentage is float) &&
+      data.gstPercentage >= 0 &&
+      data.gstPercentage <= 28 &&
+      (!('hsnCode' in data) || (data.hsnCode is string && data.hsnCode.size() <= 16 && data.hsnCode.matches('^[0-9A-Za-z]*$'))) &&
+      data.status is string &&
+      data.status in ['Active', 'Inactive'] &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidRawMaterial(data, materialId) {
+      return data.keys().hasAll([
+        'id',
+        'orgId',
+        'name',
+        'materialCode',
+        'category',
+        'unit',
+        'openingStock',
+        'currentStock',
+        'purchasePrice',
+        'minimumStockLevel',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id',
+        'orgId',
+        'name',
+        'materialCode',
+        'category',
+        'unit',
+        'openingStock',
+        'currentStock',
+        'purchasePrice',
+        'minimumStockLevel',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == materialId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.name is string &&
+      data.name.size() >= 1 &&
+      data.name.size() <= 120 &&
+      data.materialCode is string &&
+      data.materialCode.size() >= 1 &&
+      data.materialCode.size() <= 40 &&
+      data.materialCode.matches('^[A-Z0-9\\-_]+$') &&
+      data.category is string &&
+      data.category.size() >= 1 &&
+      data.category.size() <= 60 &&
+      data.unit is string &&
+      data.unit in ['kg', 'litre', 'pieces'] &&
+      (data.openingStock is int || data.openingStock is float) &&
+      data.openingStock >= 0 &&
+      data.openingStock <= 100000000 &&
+      (data.currentStock is int || data.currentStock is float) &&
+      data.currentStock >= 0 &&
+      data.currentStock <= 100000000 &&
+      (data.purchasePrice is int || data.purchasePrice is float) &&
+      data.purchasePrice >= 0 &&
+      data.purchasePrice <= 10000000 &&
+      (data.minimumStockLevel is int || data.minimumStockLevel is float) &&
+      data.minimumStockLevel >= 0 &&
+      data.minimumStockLevel <= 100000000 &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidCustomer(data, customerId) {
+      return data.keys().hasAll([
+        'id',
+        'orgId',
+        'name',
+        'contactPerson',
+        'phone',
+        'email',
+        'gstin',
+        'billingAddress',
+        'state',
+        'stateCode',
+        'customerType',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id',
+        'orgId',
+        'name',
+        'contactPerson',
+        'phone',
+        'email',
+        'gstin',
+        'billingAddress',
+        'state',
+        'stateCode',
+        'customerType',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == customerId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.name is string &&
+      data.name.size() >= 1 &&
+      data.name.size() <= 120 &&
+      data.contactPerson is string &&
+      data.contactPerson.size() >= 1 &&
+      data.contactPerson.size() <= 100 &&
+      data.phone is string &&
+      data.phone.size() >= 6 &&
+      data.phone.size() <= 20 &&
+      data.email is string &&
+      data.email.size() <= 254 &&
+      isValidGstin(data.gstin) &&
+      data.billingAddress is string &&
+      data.billingAddress.size() >= 1 &&
+      data.billingAddress.size() <= 300 &&
+      data.state is string &&
+      data.state.size() >= 1 &&
+      data.state.size() <= 60 &&
+      data.stateCode is string &&
+      data.stateCode.size() >= 1 &&
+      data.stateCode.size() <= 5 &&
+      data.customerType is string &&
+      data.customerType in ['Retailer', 'Distributor'] &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidSupplier(data, supplierId) {
+      return data.keys().hasAll([
+        'id',
+        'orgId',
+        'name',
+        'contactPerson',
+        'phone',
+        'email',
+        'gstin',
+        'address',
+        'state',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id',
+        'orgId',
+        'name',
+        'contactPerson',
+        'phone',
+        'email',
+        'gstin',
+        'address',
+        'state',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == supplierId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.name is string &&
+      data.name.size() >= 1 &&
+      data.name.size() <= 120 &&
+      data.contactPerson is string &&
+      data.contactPerson.size() >= 1 &&
+      data.contactPerson.size() <= 100 &&
+      data.phone is string &&
+      data.phone.size() >= 6 &&
+      data.phone.size() <= 20 &&
+      data.email is string &&
+      data.email.size() <= 254 &&
+      isValidGstin(data.gstin) &&
+      data.address is string &&
+      data.address.size() >= 1 &&
+      data.address.size() <= 300 &&
+      data.state is string &&
+      data.state.size() >= 1 &&
+      data.state.size() <= 60 &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidPurchase(data, purchaseId) {
+      return data.keys().hasAll([
+        'id',
+        'orgId',
+        'poNumber',
+        'supplierId',
+        'supplierName',
+        'supplierGstin',
+        'purchaseDate',
+        'invoiceNumber',
+        'paymentStatus',
+        'receiptStatus',
+        'itemCount',
+        'subtotal',
+        'gstTotal',
+        'grandTotal',
+        'notes',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id',
+        'orgId',
+        'poNumber',
+        'supplierId',
+        'supplierName',
+        'supplierGstin',
+        'purchaseDate',
+        'invoiceNumber',
+        'paymentStatus',
+        'receiptStatus',
+        'itemCount',
+        'subtotal',
+        'gstTotal',
+        'grandTotal',
+        'notes',
+        'createdBy',
+        'createdAt',
+        'updatedAt',
+        'receivedBy',
+        'receivedAt'
+      ]) &&
+      data.id is string &&
+      data.id == purchaseId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.poNumber is string &&
+      data.poNumber.size() >= 1 &&
+      data.poNumber.size() <= 40 &&
+      data.poNumber.matches('^[A-Z0-9\\-_]+$') &&
+      data.supplierId is string &&
+      isValidId(data.supplierId) &&
+      data.supplierName is string &&
+      data.supplierName.size() >= 1 &&
+      data.supplierName.size() <= 120 &&
+      isValidGstin(data.supplierGstin) &&
+      data.purchaseDate is string &&
+      data.purchaseDate.size() == 10 &&
+      data.purchaseDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+      data.invoiceNumber is string &&
+      data.invoiceNumber.size() <= 60 &&
+      data.paymentStatus is string &&
+      data.paymentStatus in ['Paid', 'Partially Paid', 'Unpaid'] &&
+      data.receiptStatus is string &&
+      data.receiptStatus in ['Ordered', 'Received', 'Cancelled'] &&
+      data.itemCount is int &&
+      data.itemCount >= 1 &&
+      data.itemCount <= 100 &&
+      (data.subtotal is int || data.subtotal is float) &&
+      data.subtotal >= 0 &&
+      data.subtotal <= 1000000000 &&
+      (data.gstTotal is int || data.gstTotal is float) &&
+      data.gstTotal >= 0 &&
+      data.gstTotal <= 1000000000 &&
+      (data.grandTotal is int || data.grandTotal is float) &&
+      data.grandTotal >= 0 &&
+      data.grandTotal <= 1000000000 &&
+      data.notes is string &&
+      data.notes.size() <= 500 &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp &&
+      (!('receivedBy' in data) || (data.receivedBy is string && isValidId(data.receivedBy))) &&
+      (!('receivedAt' in data) || data.receivedAt is timestamp);
+    }
+
+    function isValidPurchaseItem(data, itemId) {
+      return data.keys().hasAll([
+        'id',
+        'orgId',
+        'purchaseId',
+        'rawMaterialId',
+        'materialName',
+        'materialCode',
+        'unit',
+        'quantity',
+        'unitPrice',
+        'gstPercentage',
+        'lineSubtotal',
+        'lineGst',
+        'lineTotal',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id',
+        'orgId',
+        'purchaseId',
+        'rawMaterialId',
+        'materialName',
+        'materialCode',
+        'unit',
+        'quantity',
+        'unitPrice',
+        'gstPercentage',
+        'lineSubtotal',
+        'lineGst',
+        'lineTotal',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == itemId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.purchaseId is string &&
+      isValidId(data.purchaseId) &&
+      data.rawMaterialId is string &&
+      isValidId(data.rawMaterialId) &&
+      data.materialName is string &&
+      data.materialName.size() >= 1 &&
+      data.materialName.size() <= 120 &&
+      data.materialCode is string &&
+      data.materialCode.size() >= 1 &&
+      data.materialCode.size() <= 40 &&
+      data.materialCode.matches('^[A-Z0-9\\-_]+$') &&
+      data.unit is string &&
+      data.unit in ['kg', 'litre', 'pieces'] &&
+      (data.quantity is int || data.quantity is float) &&
+      data.quantity > 0 &&
+      data.quantity <= 100000000 &&
+      (data.unitPrice is int || data.unitPrice is float) &&
+      data.unitPrice >= 0 &&
+      data.unitPrice <= 10000000 &&
+      (data.gstPercentage is int || data.gstPercentage is float) &&
+      data.gstPercentage >= 0 &&
+      data.gstPercentage <= 28 &&
+      (data.lineSubtotal is int || data.lineSubtotal is float) &&
+      data.lineSubtotal >= 0 &&
+      data.lineSubtotal <= 1000000000 &&
+      (data.lineGst is int || data.lineGst is float) &&
+      data.lineGst >= 0 &&
+      data.lineGst <= 1000000000 &&
+      (data.lineTotal is int || data.lineTotal is float) &&
+      data.lineTotal >= 0 &&
+      data.lineTotal <= 1000000000 &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidBom(data, bomId) {
+      return data.keys().hasAll([
+        'id',
+        'orgId',
+        'bomCode',
+        'productId',
+        'productName',
+        'productSku',
+        'packetSize',
+        'version',
+        'batchSize',
+        'status',
+        'itemCount',
+        'estimatedMaterialCost',
+        'costPerUnit',
+        'notes',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id',
+        'orgId',
+        'bomCode',
+        'productId',
+        'productName',
+        'productSku',
+        'packetSize',
+        'version',
+        'batchSize',
+        'status',
+        'itemCount',
+        'estimatedMaterialCost',
+        'costPerUnit',
+        'notes',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == bomId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.bomCode is string &&
+      data.bomCode.size() >= 1 &&
+      data.bomCode.size() <= 40 &&
+      data.bomCode.matches('^[A-Z0-9\\-_]+$') &&
+      data.productId is string &&
+      isValidId(data.productId) &&
+      data.productName is string &&
+      data.productName.size() >= 1 &&
+      data.productName.size() <= 120 &&
+      data.productSku is string &&
+      data.productSku.size() >= 1 &&
+      data.productSku.size() <= 40 &&
+      data.productSku.matches('^[A-Z0-9\\-_]+$') &&
+      data.packetSize is string &&
+      data.packetSize.size() >= 1 &&
+      data.packetSize.size() <= 30 &&
+      data.version is int &&
+      data.version >= 1 &&
+      data.version <= 1000 &&
+      (data.batchSize is int || data.batchSize is float) &&
+      data.batchSize > 0 &&
+      data.batchSize <= 10000000 &&
+      data.status is string &&
+      data.status in ['Active', 'Draft', 'Archived'] &&
+      data.itemCount is int &&
+      data.itemCount >= 1 &&
+      data.itemCount <= 100 &&
+      (data.estimatedMaterialCost is int || data.estimatedMaterialCost is float) &&
+      data.estimatedMaterialCost >= 0 &&
+      data.estimatedMaterialCost <= 1000000000 &&
+      (data.costPerUnit is int || data.costPerUnit is float) &&
+      data.costPerUnit >= 0 &&
+      data.costPerUnit <= 100000000 &&
+      data.notes is string &&
+      data.notes.size() <= 500 &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidBomItem(data, itemId) {
+      return data.keys().hasAll([
+        'id',
+        'orgId',
+        'bomId',
+        'rawMaterialId',
+        'materialName',
+        'materialCode',
+        'stockUnit',
+        'unit',
+        'quantity',
+        'unitCost',
+        'estimatedCost',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id',
+        'orgId',
+        'bomId',
+        'rawMaterialId',
+        'materialName',
+        'materialCode',
+        'stockUnit',
+        'unit',
+        'quantity',
+        'unitCost',
+        'estimatedCost',
+        'createdBy',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == itemId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.bomId is string &&
+      isValidId(data.bomId) &&
+      data.rawMaterialId is string &&
+      isValidId(data.rawMaterialId) &&
+      data.materialName is string &&
+      data.materialName.size() >= 1 &&
+      data.materialName.size() <= 120 &&
+      data.materialCode is string &&
+      data.materialCode.size() >= 1 &&
+      data.materialCode.size() <= 40 &&
+      data.materialCode.matches('^[A-Z0-9\\-_]+$') &&
+      data.stockUnit is string &&
+      data.stockUnit in ['kg', 'litre', 'pieces'] &&
+      data.unit is string &&
+      data.unit in ['kg', 'g', 'litre', 'ml', 'pieces'] &&
+      (data.quantity is int || data.quantity is float) &&
+      data.quantity > 0 &&
+      data.quantity <= 100000000 &&
+      (data.unitCost is int || data.unitCost is float) &&
+      data.unitCost >= 0 &&
+      data.unitCost <= 10000000 &&
+      (data.estimatedCost is int || data.estimatedCost is float) &&
+      data.estimatedCost >= 0 &&
+      data.estimatedCost <= 1000000000 &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidProductionOrder(data, orderId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'orderNumber', 'productId', 'productName', 'productSku', 'packetSize',
+        'bomId', 'bomCode', 'bomVersion', 'bomBatchSize', 'plannedQuantity', 'expectedQuantity',
+        'actualGoodQuantity', 'damagedQuantity', 'productionDate', 'supervisorUid', 'supervisorName',
+        'status', 'materialsIssued', 'finishedGoodsPosted', 'notes', 'createdBy', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'orderNumber', 'productId', 'productName', 'productSku', 'packetSize',
+        'bomId', 'bomCode', 'bomVersion', 'bomBatchSize', 'plannedQuantity', 'expectedQuantity',
+        'actualGoodQuantity', 'damagedQuantity', 'productionDate', 'supervisorUid', 'supervisorName',
+        'status', 'materialsIssued', 'finishedGoodsPosted', 'notes', 'createdBy', 'createdAt', 'updatedAt',
+        'issuedBy', 'issuedAt', 'completedBy', 'completedAt'
+      ]) &&
+      data.id is string &&
+      data.id == orderId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.orderNumber is string &&
+      data.orderNumber.size() >= 1 &&
+      data.orderNumber.size() <= 40 &&
+      data.orderNumber.matches('^[A-Z0-9\\-_]+$') &&
+      data.productId is string &&
+      isValidId(data.productId) &&
+      data.productName is string &&
+      data.productName.size() >= 1 &&
+      data.productName.size() <= 120 &&
+      data.productSku is string &&
+      data.productSku.size() >= 1 &&
+      data.productSku.size() <= 40 &&
+      data.productSku.matches('^[A-Z0-9\\-_]+$') &&
+      data.packetSize is string &&
+      data.packetSize.size() >= 1 &&
+      data.packetSize.size() <= 30 &&
+      data.bomId is string &&
+      isValidId(data.bomId) &&
+      data.bomCode is string &&
+      data.bomCode.size() >= 1 &&
+      data.bomCode.size() <= 40 &&
+      data.bomCode.matches('^[A-Z0-9\\-_]+$') &&
+      data.bomVersion is int &&
+      data.bomVersion >= 1 &&
+      data.bomVersion <= 1000 &&
+      (data.bomBatchSize is int || data.bomBatchSize is float) &&
+      data.bomBatchSize > 0 &&
+      data.bomBatchSize <= 10000000 &&
+      (data.plannedQuantity is int || data.plannedQuantity is float) &&
+      data.plannedQuantity > 0 &&
+      data.plannedQuantity <= 100000000 &&
+      (data.expectedQuantity is int || data.expectedQuantity is float) &&
+      data.expectedQuantity > 0 &&
+      data.expectedQuantity <= 100000000 &&
+      (data.actualGoodQuantity is int || data.actualGoodQuantity is float) &&
+      data.actualGoodQuantity >= 0 &&
+      data.actualGoodQuantity <= 100000000 &&
+      (data.damagedQuantity is int || data.damagedQuantity is float) &&
+      data.damagedQuantity >= 0 &&
+      data.damagedQuantity <= 100000000 &&
+      data.productionDate is string &&
+      data.productionDate.size() == 10 &&
+      data.productionDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+      data.supervisorUid is string &&
+      isValidId(data.supervisorUid) &&
+      data.supervisorName is string &&
+      data.supervisorName.size() >= 1 &&
+      data.supervisorName.size() <= 100 &&
+      data.status is string &&
+      data.status in ['Planned', 'In Progress', 'Completed', 'Cancelled'] &&
+      data.materialsIssued is bool &&
+      data.finishedGoodsPosted is bool &&
+      data.notes is string &&
+      data.notes.size() <= 500 &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp &&
+      (!('issuedBy' in data) || (data.issuedBy is string && isValidId(data.issuedBy))) &&
+      (!('issuedAt' in data) || data.issuedAt is timestamp) &&
+      (!('completedBy' in data) || (data.completedBy is string && isValidId(data.completedBy))) &&
+      (!('completedAt' in data) || data.completedAt is timestamp);
+    }
+
+    function isValidProductionConsumption(data, itemId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'productionOrderId', 'rawMaterialId', 'materialName', 'materialCode', 'unit',
+        'expectedQuantity', 'issuedQuantity', 'actualConsumedQuantity', 'damagedMaterialQuantity',
+        'varianceQuantity', 'unitCost', 'createdBy', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'productionOrderId', 'rawMaterialId', 'materialName', 'materialCode', 'unit',
+        'expectedQuantity', 'issuedQuantity', 'actualConsumedQuantity', 'damagedMaterialQuantity',
+        'varianceQuantity', 'unitCost', 'createdBy', 'createdAt', 'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == itemId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.productionOrderId is string &&
+      isValidId(data.productionOrderId) &&
+      data.rawMaterialId is string &&
+      isValidId(data.rawMaterialId) &&
+      data.materialName is string &&
+      data.materialName.size() >= 1 &&
+      data.materialName.size() <= 120 &&
+      data.materialCode is string &&
+      data.materialCode.size() >= 1 &&
+      data.materialCode.size() <= 40 &&
+      data.materialCode.matches('^[A-Z0-9\\-_]+$') &&
+      data.unit is string &&
+      data.unit in ['kg', 'litre', 'pieces'] &&
+      (data.expectedQuantity is int || data.expectedQuantity is float) &&
+      data.expectedQuantity > 0 &&
+      data.expectedQuantity <= 100000000 &&
+      (data.issuedQuantity is int || data.issuedQuantity is float) &&
+      data.issuedQuantity >= 0 &&
+      data.issuedQuantity <= 100000000 &&
+      (data.actualConsumedQuantity is int || data.actualConsumedQuantity is float) &&
+      data.actualConsumedQuantity >= 0 &&
+      data.actualConsumedQuantity <= 100000000 &&
+      (data.damagedMaterialQuantity is int || data.damagedMaterialQuantity is float) &&
+      data.damagedMaterialQuantity >= 0 &&
+      data.damagedMaterialQuantity <= 100000000 &&
+      (data.varianceQuantity is int || data.varianceQuantity is float) &&
+      data.varianceQuantity >= -100000000 &&
+      data.varianceQuantity <= 100000000 &&
+      (data.unitCost is int || data.unitCost is float) &&
+      data.unitCost >= 0 &&
+      data.unitCost <= 10000000 &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidStockBalance(data, balanceId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'itemId', 'itemCode', 'itemName', 'stockCategory', 'unit',
+        'openingStock', 'receivedFromPurchases', 'issuedToProduction', 'receivedFromProduction',
+        'dispatchedThroughSales', 'adjustmentsNet', 'currentBalance', 'minimumStockLevel',
+        'updatedBy', 'updatedByName', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'itemId', 'itemCode', 'itemName', 'stockCategory', 'unit',
+        'openingStock', 'receivedFromPurchases', 'issuedToProduction', 'receivedFromProduction',
+        'dispatchedThroughSales', 'adjustmentsNet', 'currentBalance', 'minimumStockLevel',
+        'updatedBy', 'updatedByName', 'createdAt', 'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == balanceId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.itemId is string &&
+      isValidId(data.itemId) &&
+      data.itemCode is string &&
+      data.itemCode.size() >= 1 &&
+      data.itemCode.size() <= 40 &&
+      data.itemCode.matches('^[A-Z0-9\\-_]+$') &&
+      data.itemName is string &&
+      data.itemName.size() >= 1 &&
+      data.itemName.size() <= 120 &&
+      data.stockCategory is string &&
+      data.stockCategory in ['raw_material', 'wip', 'finished_goods', 'damaged'] &&
+      data.unit is string &&
+      data.unit in ['kg', 'litre', 'pieces', 'packets'] &&
+      (data.openingStock is int || data.openingStock is float) &&
+      data.openingStock >= 0 &&
+      data.openingStock <= 100000000 &&
+      (data.receivedFromPurchases is int || data.receivedFromPurchases is float) &&
+      data.receivedFromPurchases >= 0 &&
+      data.receivedFromPurchases <= 100000000 &&
+      (data.issuedToProduction is int || data.issuedToProduction is float) &&
+      data.issuedToProduction >= 0 &&
+      data.issuedToProduction <= 100000000 &&
+      (data.receivedFromProduction is int || data.receivedFromProduction is float) &&
+      data.receivedFromProduction >= 0 &&
+      data.receivedFromProduction <= 100000000 &&
+      (data.dispatchedThroughSales is int || data.dispatchedThroughSales is float) &&
+      data.dispatchedThroughSales >= 0 &&
+      data.dispatchedThroughSales <= 100000000 &&
+      (data.adjustmentsNet is int || data.adjustmentsNet is float) &&
+      data.adjustmentsNet >= -100000000 &&
+      data.adjustmentsNet <= 100000000 &&
+      (data.currentBalance is int || data.currentBalance is float) &&
+      data.currentBalance >= 0 &&
+      data.currentBalance <= 100000000 &&
+      (data.minimumStockLevel is int || data.minimumStockLevel is float) &&
+      data.minimumStockLevel >= 0 &&
+      data.minimumStockLevel <= 100000000 &&
+      data.updatedBy is string &&
+      isValidId(data.updatedBy) &&
+      data.updatedByName is string &&
+      data.updatedByName.size() >= 1 &&
+      data.updatedByName.size() <= 100 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidInventoryLedgerEntry(data, entryId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'transactionDate', 'itemId', 'itemCode', 'itemName', 'stockCategory',
+        'unit', 'transactionType', 'quantityIn', 'quantityOut', 'balance', 'referenceDoc',
+        'reason', 'userUid', 'userName', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'transactionDate', 'itemId', 'itemCode', 'itemName', 'stockCategory',
+        'unit', 'transactionType', 'quantityIn', 'quantityOut', 'balance', 'referenceDoc',
+        'reason', 'userUid', 'userName', 'createdAt'
+      ]) &&
+      data.id is string &&
+      data.id == entryId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.transactionDate is string &&
+      data.transactionDate.size() == 10 &&
+      data.transactionDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+      data.itemId is string &&
+      isValidId(data.itemId) &&
+      data.itemCode is string &&
+      data.itemCode.size() >= 1 &&
+      data.itemCode.size() <= 40 &&
+      data.itemCode.matches('^[A-Z0-9\\-_]+$') &&
+      data.itemName is string &&
+      data.itemName.size() >= 1 &&
+      data.itemName.size() <= 120 &&
+      data.stockCategory is string &&
+      data.stockCategory in ['raw_material', 'wip', 'finished_goods', 'damaged'] &&
+      data.unit is string &&
+      data.unit in ['kg', 'litre', 'pieces', 'packets'] &&
+      data.transactionType is string &&
+      data.transactionType in [
+        'Opening Stock',
+        'Purchase Receipt',
+        'Production Issue',
+        'Production Return',
+        'Production Extra Consumption',
+        'WIP Issue',
+        'WIP Completion',
+        'Production Output',
+        'Damaged Output',
+        'Sales Dispatch',
+        'Adjustment In',
+        'Adjustment Out'
+      ] &&
+      (data.quantityIn is int || data.quantityIn is float) &&
+      data.quantityIn >= 0 &&
+      data.quantityIn <= 100000000 &&
+      (data.quantityOut is int || data.quantityOut is float) &&
+      data.quantityOut >= 0 &&
+      data.quantityOut <= 100000000 &&
+      (data.balance is int || data.balance is float) &&
+      data.balance >= 0 &&
+      data.balance <= 100000000 &&
+      data.referenceDoc is string &&
+      data.referenceDoc.size() >= 1 &&
+      data.referenceDoc.size() <= 60 &&
+      data.reason is string &&
+      data.reason.size() <= 300 &&
+      data.userUid is string &&
+      isValidId(data.userUid) &&
+      data.userName is string &&
+      data.userName.size() >= 1 &&
+      data.userName.size() <= 100 &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidProductionVariance(data, varianceId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'productionOrderId', 'orderNumber', 'productId', 'productName',
+        'productionDate', 'expectedQuantity', 'actualGoodQuantity', 'damagedQuantity',
+        'yieldVarianceQty', 'yieldVariancePercent', 'expectedMaterialCost', 'actualMaterialCost',
+        'materialCostVariance', 'damagedMaterialQty', 'createdBy', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'productionOrderId', 'orderNumber', 'productId', 'productName',
+        'productionDate', 'expectedQuantity', 'actualGoodQuantity', 'damagedQuantity',
+        'yieldVarianceQty', 'yieldVariancePercent', 'expectedMaterialCost', 'actualMaterialCost',
+        'materialCostVariance', 'damagedMaterialQty', 'createdBy', 'createdAt'
+      ]) &&
+      data.id is string &&
+      data.id == varianceId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.productionOrderId is string &&
+      isValidId(data.productionOrderId) &&
+      data.orderNumber is string &&
+      data.orderNumber.size() >= 1 &&
+      data.orderNumber.size() <= 40 &&
+      data.orderNumber.matches('^[A-Z0-9\\-_]+$') &&
+      data.productId is string &&
+      isValidId(data.productId) &&
+      data.productName is string &&
+      data.productName.size() >= 1 &&
+      data.productName.size() <= 120 &&
+      data.productionDate is string &&
+      data.productionDate.size() == 10 &&
+      data.productionDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+      (data.expectedQuantity is int || data.expectedQuantity is float) &&
+      data.expectedQuantity > 0 &&
+      data.expectedQuantity <= 100000000 &&
+      (data.actualGoodQuantity is int || data.actualGoodQuantity is float) &&
+      data.actualGoodQuantity >= 0 &&
+      data.actualGoodQuantity <= 100000000 &&
+      (data.damagedQuantity is int || data.damagedQuantity is float) &&
+      data.damagedQuantity >= 0 &&
+      data.damagedQuantity <= 100000000 &&
+      (data.yieldVarianceQty is int || data.yieldVarianceQty is float) &&
+      data.yieldVarianceQty >= -100000000 &&
+      data.yieldVarianceQty <= 100000000 &&
+      (data.yieldVariancePercent is int || data.yieldVariancePercent is float) &&
+      data.yieldVariancePercent >= -10000 &&
+      data.yieldVariancePercent <= 10000 &&
+      (data.expectedMaterialCost is int || data.expectedMaterialCost is float) &&
+      data.expectedMaterialCost >= 0 &&
+      data.expectedMaterialCost <= 1000000000 &&
+      (data.actualMaterialCost is int || data.actualMaterialCost is float) &&
+      data.actualMaterialCost >= 0 &&
+      data.actualMaterialCost <= 1000000000 &&
+      (data.materialCostVariance is int || data.materialCostVariance is float) &&
+      data.materialCostVariance >= -1000000000 &&
+      data.materialCostVariance <= 1000000000 &&
+      (data.damagedMaterialQty is int || data.damagedMaterialQty is float) &&
+      data.damagedMaterialQty >= 0 &&
+      data.damagedMaterialQty <= 100000000 &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidFactorySettings(data, settingId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'factoryName', 'factoryAddress', 'factoryState', 'factoryStateCode',
+        'factoryGstin', 'invoicePrefix', 'nextInvoiceSeq', 'defaultHsnCode',
+        'updatedBy', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'factoryName', 'factoryAddress', 'factoryState', 'factoryStateCode',
+        'factoryGstin', 'invoicePrefix', 'nextInvoiceSeq', 'defaultHsnCode',
+        'updatedBy', 'createdAt', 'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == settingId &&
+      settingId == 'factoryConfig' &&
+      data.orgId == 'snackfactory' &&
+      data.factoryName is string &&
+      data.factoryName.size() >= 1 &&
+      data.factoryName.size() <= 120 &&
+      data.factoryAddress is string &&
+      data.factoryAddress.size() >= 1 &&
+      data.factoryAddress.size() <= 300 &&
+      data.factoryState is string &&
+      data.factoryState.size() >= 1 &&
+      data.factoryState.size() <= 60 &&
+      data.factoryStateCode is string &&
+      data.factoryStateCode.size() >= 1 &&
+      data.factoryStateCode.size() <= 5 &&
+      isValidGstin(data.factoryGstin) &&
+      data.invoicePrefix is string &&
+      data.invoicePrefix.size() >= 1 &&
+      data.invoicePrefix.size() <= 20 &&
+      data.invoicePrefix.matches('^[A-Z0-9\\-_]+$') &&
+      data.nextInvoiceSeq is int &&
+      data.nextInvoiceSeq >= 1 &&
+      data.nextInvoiceSeq <= 100000000 &&
+      data.defaultHsnCode is string &&
+      data.defaultHsnCode.size() >= 1 &&
+      data.defaultHsnCode.size() <= 16 &&
+      data.defaultHsnCode.matches('^[0-9A-Za-z]+$') &&
+      data.updatedBy is string &&
+      isValidId(data.updatedBy) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidSalesOrder(data, orderId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'orderNumber', 'customerId', 'customerName', 'customerGstin',
+        'customerAddress', 'customerState', 'customerStateCode', 'orderDate', 'expectedDeliveryDate',
+        'salesmanUid', 'salesmanName', 'status', 'itemCount', 'totalOrderedQty', 'totalDispatchedQty',
+        'taxType', 'subtotal', 'cgstTotal', 'sgstTotal', 'igstTotal', 'gstTotal', 'grandTotal',
+        'invoiceId', 'invoiceNumber', 'notes', 'createdBy', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'orderNumber', 'customerId', 'customerName', 'customerGstin',
+        'customerAddress', 'customerState', 'customerStateCode', 'orderDate', 'expectedDeliveryDate',
+        'salesmanUid', 'salesmanName', 'status', 'itemCount', 'totalOrderedQty', 'totalDispatchedQty',
+        'taxType', 'subtotal', 'cgstTotal', 'sgstTotal', 'igstTotal', 'gstTotal', 'grandTotal',
+        'invoiceId', 'invoiceNumber', 'notes', 'approverUid', 'approverName', 'approvedAt',
+        'approvalRemarks', 'createdBy', 'createdAt', 'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == orderId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.orderNumber is string &&
+      data.orderNumber.size() >= 1 &&
+      data.orderNumber.size() <= 40 &&
+      data.orderNumber.matches('^[A-Z0-9\\-_]+$') &&
+      data.customerId is string &&
+      isValidId(data.customerId) &&
+      data.customerName is string &&
+      data.customerName.size() >= 1 &&
+      data.customerName.size() <= 120 &&
+      isValidGstin(data.customerGstin) &&
+      data.customerAddress is string &&
+      data.customerAddress.size() >= 1 &&
+      data.customerAddress.size() <= 300 &&
+      data.customerState is string &&
+      data.customerState.size() >= 1 &&
+      data.customerState.size() <= 60 &&
+      data.customerStateCode is string &&
+      data.customerStateCode.size() >= 1 &&
+      data.customerStateCode.size() <= 5 &&
+      data.orderDate is string &&
+      data.orderDate.size() == 10 &&
+      data.orderDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+      data.expectedDeliveryDate is string &&
+      data.expectedDeliveryDate.size() == 10 &&
+      data.expectedDeliveryDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+      data.salesmanUid is string &&
+      isValidId(data.salesmanUid) &&
+      data.salesmanName is string &&
+      data.salesmanName.size() >= 1 &&
+      data.salesmanName.size() <= 100 &&
+      data.status is string &&
+      data.status in ['Draft', 'Pending Approval', 'Approved', 'Rejected', 'Partially Dispatched', 'Dispatched', 'Cancelled'] &&
+      data.itemCount is int &&
+      data.itemCount >= 1 &&
+      data.itemCount <= 100 &&
+      (data.totalOrderedQty is int || data.totalOrderedQty is float) &&
+      data.totalOrderedQty > 0 &&
+      data.totalOrderedQty <= 100000000 &&
+      (data.totalDispatchedQty is int || data.totalDispatchedQty is float) &&
+      data.totalDispatchedQty >= 0 &&
+      data.totalDispatchedQty <= data.totalOrderedQty &&
+      data.taxType is string &&
+      data.taxType in ['CGST_SGST', 'IGST'] &&
+      (data.subtotal is int || data.subtotal is float) &&
+      data.subtotal >= 0 &&
+      data.subtotal <= 1000000000 &&
+      (data.cgstTotal is int || data.cgstTotal is float) &&
+      data.cgstTotal >= 0 &&
+      data.cgstTotal <= 1000000000 &&
+      (data.sgstTotal is int || data.sgstTotal is float) &&
+      data.sgstTotal >= 0 &&
+      data.sgstTotal <= 1000000000 &&
+      (data.igstTotal is int || data.igstTotal is float) &&
+      data.igstTotal >= 0 &&
+      data.igstTotal <= 1000000000 &&
+      (data.gstTotal is int || data.gstTotal is float) &&
+      data.gstTotal >= 0 &&
+      data.gstTotal <= 1000000000 &&
+      (data.grandTotal is int || data.grandTotal is float) &&
+      data.grandTotal >= 0 &&
+      data.grandTotal <= 1000000000 &&
+      data.invoiceId is string &&
+      data.invoiceId.size() <= 132 &&
+      data.invoiceNumber is string &&
+      data.invoiceNumber.size() <= 40 &&
+      data.notes is string &&
+      data.notes.size() <= 500 &&
+      (!('approverUid' in data) || (data.approverUid is string && isValidId(data.approverUid))) &&
+      (!('approverName' in data) || (data.approverName is string && data.approverName.size() >= 1 && data.approverName.size() <= 100)) &&
+      (!('approvedAt' in data) || data.approvedAt is timestamp) &&
+      (!('approvalRemarks' in data) || (data.approvalRemarks is string && data.approvalRemarks.size() <= 300)) &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidSalesOrderItem(data, itemId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'salesOrderId', 'salesmanUid', 'productId', 'productName', 'productSku',
+        'packetSize', 'hsnCode', 'quantity', 'dispatchedQuantity', 'sellingPrice', 'gstPercentage',
+        'lineSubtotal', 'cgstAmount', 'sgstAmount', 'igstAmount', 'lineGst', 'lineTotal',
+        'createdBy', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'salesOrderId', 'salesmanUid', 'productId', 'productName', 'productSku',
+        'packetSize', 'hsnCode', 'quantity', 'dispatchedQuantity', 'sellingPrice', 'gstPercentage',
+        'lineSubtotal', 'cgstAmount', 'sgstAmount', 'igstAmount', 'lineGst', 'lineTotal',
+        'createdBy', 'createdAt', 'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == itemId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.salesOrderId is string &&
+      isValidId(data.salesOrderId) &&
+      data.salesmanUid is string &&
+      isValidId(data.salesmanUid) &&
+      data.productId is string &&
+      isValidId(data.productId) &&
+      data.productName is string &&
+      data.productName.size() >= 1 &&
+      data.productName.size() <= 120 &&
+      data.productSku is string &&
+      data.productSku.size() >= 1 &&
+      data.productSku.size() <= 40 &&
+      data.productSku.matches('^[A-Z0-9\\-_]+$') &&
+      data.packetSize is string &&
+      data.packetSize.size() >= 1 &&
+      data.packetSize.size() <= 30 &&
+      data.hsnCode is string &&
+      data.hsnCode.size() >= 1 &&
+      data.hsnCode.size() <= 16 &&
+      data.hsnCode.matches('^[0-9A-Za-z]+$') &&
+      (data.quantity is int || data.quantity is float) &&
+      data.quantity > 0 &&
+      data.quantity <= 100000000 &&
+      (data.dispatchedQuantity is int || data.dispatchedQuantity is float) &&
+      data.dispatchedQuantity >= 0 &&
+      data.dispatchedQuantity <= data.quantity &&
+      (data.sellingPrice is int || data.sellingPrice is float) &&
+      data.sellingPrice >= 0 &&
+      data.sellingPrice <= 10000000 &&
+      (data.gstPercentage is int || data.gstPercentage is float) &&
+      data.gstPercentage >= 0 &&
+      data.gstPercentage <= 28 &&
+      (data.lineSubtotal is int || data.lineSubtotal is float) &&
+      data.lineSubtotal >= 0 &&
+      data.lineSubtotal <= 1000000000 &&
+      (data.cgstAmount is int || data.cgstAmount is float) &&
+      data.cgstAmount >= 0 &&
+      data.cgstAmount <= 1000000000 &&
+      (data.sgstAmount is int || data.sgstAmount is float) &&
+      data.sgstAmount >= 0 &&
+      data.sgstAmount <= 1000000000 &&
+      (data.igstAmount is int || data.igstAmount is float) &&
+      data.igstAmount >= 0 &&
+      data.igstAmount <= 1000000000 &&
+      (data.lineGst is int || data.lineGst is float) &&
+      data.lineGst >= 0 &&
+      data.lineGst <= 1000000000 &&
+      (data.lineTotal is int || data.lineTotal is float) &&
+      data.lineTotal >= 0 &&
+      data.lineTotal <= 1000000000 &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidInvoice(data, invoiceId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'invoiceNumber', 'salesOrderId', 'orderNumber', 'salesmanUid', 'salesmanName',
+        'invoiceDate', 'factoryName', 'factoryAddress', 'factoryState', 'factoryStateCode', 'factoryGstin',
+        'customerId', 'customerName', 'customerGstin', 'customerAddress', 'customerState', 'customerStateCode',
+        'taxType', 'itemCount', 'subtotal', 'cgstTotal', 'sgstTotal', 'igstTotal', 'gstTotal', 'grandTotal',
+        'amountPaid', 'outstandingBalance', 'paymentStatus', 'notes', 'createdBy', 'createdByName',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'invoiceNumber', 'salesOrderId', 'orderNumber', 'salesmanUid', 'salesmanName',
+        'invoiceDate', 'factoryName', 'factoryAddress', 'factoryState', 'factoryStateCode', 'factoryGstin',
+        'customerId', 'customerName', 'customerGstin', 'customerAddress', 'customerState', 'customerStateCode',
+        'taxType', 'itemCount', 'subtotal', 'cgstTotal', 'sgstTotal', 'igstTotal', 'gstTotal', 'grandTotal',
+        'amountPaid', 'outstandingBalance', 'paymentStatus', 'notes', 'createdBy', 'createdByName',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == invoiceId &&
+      invoiceId == 'inv_' + data.salesOrderId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.invoiceNumber is string &&
+      data.invoiceNumber.size() >= 1 &&
+      data.invoiceNumber.size() <= 40 &&
+      data.invoiceNumber.matches('^[A-Z0-9\\-_]+$') &&
+      data.salesOrderId is string &&
+      isValidId(data.salesOrderId) &&
+      data.orderNumber is string &&
+      data.orderNumber.size() >= 1 &&
+      data.orderNumber.size() <= 40 &&
+      data.orderNumber.matches('^[A-Z0-9\\-_]+$') &&
+      data.salesmanUid is string &&
+      isValidId(data.salesmanUid) &&
+      data.salesmanName is string &&
+      data.salesmanName.size() >= 1 &&
+      data.salesmanName.size() <= 100 &&
+      data.invoiceDate is string &&
+      data.invoiceDate.size() == 10 &&
+      data.invoiceDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+      data.factoryName is string &&
+      data.factoryName.size() >= 1 &&
+      data.factoryName.size() <= 120 &&
+      data.factoryAddress is string &&
+      data.factoryAddress.size() >= 1 &&
+      data.factoryAddress.size() <= 300 &&
+      data.factoryState is string &&
+      data.factoryState.size() >= 1 &&
+      data.factoryState.size() <= 60 &&
+      data.factoryStateCode is string &&
+      data.factoryStateCode.size() >= 1 &&
+      data.factoryStateCode.size() <= 5 &&
+      isValidGstin(data.factoryGstin) &&
+      data.customerId is string &&
+      isValidId(data.customerId) &&
+      data.customerName is string &&
+      data.customerName.size() >= 1 &&
+      data.customerName.size() <= 120 &&
+      isValidGstin(data.customerGstin) &&
+      data.customerAddress is string &&
+      data.customerAddress.size() >= 1 &&
+      data.customerAddress.size() <= 300 &&
+      data.customerState is string &&
+      data.customerState.size() >= 1 &&
+      data.customerState.size() <= 60 &&
+      data.customerStateCode is string &&
+      data.customerStateCode.size() >= 1 &&
+      data.customerStateCode.size() <= 5 &&
+      data.taxType is string &&
+      data.taxType in ['CGST_SGST', 'IGST'] &&
+      data.itemCount is int &&
+      data.itemCount >= 1 &&
+      data.itemCount <= 100 &&
+      (data.subtotal is int || data.subtotal is float) &&
+      data.subtotal >= 0 &&
+      data.subtotal <= 1000000000 &&
+      (data.cgstTotal is int || data.cgstTotal is float) &&
+      data.cgstTotal >= 0 &&
+      data.cgstTotal <= 1000000000 &&
+      (data.sgstTotal is int || data.sgstTotal is float) &&
+      data.sgstTotal >= 0 &&
+      data.sgstTotal <= 1000000000 &&
+      (data.igstTotal is int || data.igstTotal is float) &&
+      data.igstTotal >= 0 &&
+      data.igstTotal <= 1000000000 &&
+      (data.gstTotal is int || data.gstTotal is float) &&
+      data.gstTotal >= 0 &&
+      data.gstTotal <= 1000000000 &&
+      (data.grandTotal is int || data.grandTotal is float) &&
+      data.grandTotal >= 0 &&
+      data.grandTotal <= 1000000000 &&
+      (data.amountPaid is int || data.amountPaid is float) &&
+      data.amountPaid >= 0 &&
+      data.amountPaid <= data.grandTotal &&
+      (data.outstandingBalance is int || data.outstandingBalance is float) &&
+      data.outstandingBalance >= 0 &&
+      data.outstandingBalance <= data.grandTotal &&
+      data.paymentStatus is string &&
+      data.paymentStatus in ['Paid', 'Partially Paid', 'Unpaid'] &&
+      data.notes is string &&
+      data.notes.size() <= 500 &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdByName is string &&
+      data.createdByName.size() >= 1 &&
+      data.createdByName.size() <= 100 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidInvoiceItem(data, itemId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'invoiceId', 'salesOrderId', 'salesmanUid', 'productId', 'productName',
+        'productSku', 'packetSize', 'hsnCode', 'quantity', 'rate', 'taxableValue', 'gstPercentage',
+        'cgstAmount', 'sgstAmount', 'igstAmount', 'lineGst', 'lineTotal', 'createdBy', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'invoiceId', 'salesOrderId', 'salesmanUid', 'productId', 'productName',
+        'productSku', 'packetSize', 'hsnCode', 'quantity', 'rate', 'taxableValue', 'gstPercentage',
+        'cgstAmount', 'sgstAmount', 'igstAmount', 'lineGst', 'lineTotal', 'createdBy', 'createdAt'
+      ]) &&
+      data.id is string &&
+      data.id == itemId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.invoiceId is string &&
+      data.invoiceId == 'inv_' + data.salesOrderId &&
+      isValidId(data.invoiceId) &&
+      data.salesOrderId is string &&
+      isValidId(data.salesOrderId) &&
+      data.salesmanUid is string &&
+      isValidId(data.salesmanUid) &&
+      data.productId is string &&
+      isValidId(data.productId) &&
+      data.productName is string &&
+      data.productName.size() >= 1 &&
+      data.productName.size() <= 120 &&
+      data.productSku is string &&
+      data.productSku.size() >= 1 &&
+      data.productSku.size() <= 40 &&
+      data.productSku.matches('^[A-Z0-9\\-_]+$') &&
+      data.packetSize is string &&
+      data.packetSize.size() >= 1 &&
+      data.packetSize.size() <= 30 &&
+      data.hsnCode is string &&
+      data.hsnCode.size() >= 1 &&
+      data.hsnCode.size() <= 16 &&
+      data.hsnCode.matches('^[0-9A-Za-z]+$') &&
+      (data.quantity is int || data.quantity is float) &&
+      data.quantity > 0 &&
+      data.quantity <= 100000000 &&
+      (data.rate is int || data.rate is float) &&
+      data.rate >= 0 &&
+      data.rate <= 10000000 &&
+      (data.taxableValue is int || data.taxableValue is float) &&
+      data.taxableValue >= 0 &&
+      data.taxableValue <= 1000000000 &&
+      (data.gstPercentage is int || data.gstPercentage is float) &&
+      data.gstPercentage >= 0 &&
+      data.gstPercentage <= 28 &&
+      (data.cgstAmount is int || data.cgstAmount is float) &&
+      data.cgstAmount >= 0 &&
+      data.cgstAmount <= 1000000000 &&
+      (data.sgstAmount is int || data.sgstAmount is float) &&
+      data.sgstAmount >= 0 &&
+      data.sgstAmount <= 1000000000 &&
+      (data.igstAmount is int || data.igstAmount is float) &&
+      data.igstAmount >= 0 &&
+      data.igstAmount <= 1000000000 &&
+      (data.lineGst is int || data.lineGst is float) &&
+      data.lineGst >= 0 &&
+      data.lineGst <= 1000000000 &&
+      (data.lineTotal is int || data.lineTotal is float) &&
+      data.lineTotal >= 0 &&
+      data.lineTotal <= 1000000000 &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidDispatch(data, dispatchId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'dispatchNumber', 'salesOrderId', 'orderNumber', 'salesmanUid', 'salesmanName',
+        'customerId', 'customerName', 'customerAddress', 'dispatchDate', 'vehicleNumber', 'driverName',
+        'transporterName', 'ewayBillNumber', 'notes', 'isPartial', 'partialAuthorizedBy',
+        'partialAuthorizedByName', 'itemCount', 'totalDispatchedQty', 'dispatchedBy',
+        'dispatchedByName', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'dispatchNumber', 'salesOrderId', 'orderNumber', 'salesmanUid', 'salesmanName',
+        'customerId', 'customerName', 'customerAddress', 'dispatchDate', 'vehicleNumber', 'driverName',
+        'transporterName', 'ewayBillNumber', 'notes', 'isPartial', 'partialAuthorizedBy',
+        'partialAuthorizedByName', 'itemCount', 'totalDispatchedQty', 'dispatchedBy',
+        'dispatchedByName', 'createdAt'
+      ]) &&
+      data.id is string &&
+      data.id == dispatchId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.dispatchNumber is string &&
+      data.dispatchNumber.size() >= 1 &&
+      data.dispatchNumber.size() <= 40 &&
+      data.dispatchNumber.matches('^[A-Z0-9\\-_]+$') &&
+      data.salesOrderId is string &&
+      isValidId(data.salesOrderId) &&
+      data.orderNumber is string &&
+      data.orderNumber.size() >= 1 &&
+      data.orderNumber.size() <= 40 &&
+      data.orderNumber.matches('^[A-Z0-9\\-_]+$') &&
+      data.salesmanUid is string &&
+      isValidId(data.salesmanUid) &&
+      data.salesmanName is string &&
+      data.salesmanName.size() >= 1 &&
+      data.salesmanName.size() <= 100 &&
+      data.customerId is string &&
+      isValidId(data.customerId) &&
+      data.customerName is string &&
+      data.customerName.size() >= 1 &&
+      data.customerName.size() <= 120 &&
+      data.customerAddress is string &&
+      data.customerAddress.size() >= 1 &&
+      data.customerAddress.size() <= 300 &&
+      data.dispatchDate is string &&
+      data.dispatchDate.size() == 10 &&
+      data.dispatchDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+      data.vehicleNumber is string &&
+      data.vehicleNumber.size() >= 1 &&
+      data.vehicleNumber.size() <= 40 &&
+      data.driverName is string &&
+      data.driverName.size() >= 1 &&
+      data.driverName.size() <= 100 &&
+      data.transporterName is string &&
+      data.transporterName.size() <= 120 &&
+      data.ewayBillNumber is string &&
+      data.ewayBillNumber.size() <= 40 &&
+      data.notes is string &&
+      data.notes.size() <= 500 &&
+      data.isPartial is bool &&
+      data.partialAuthorizedBy is string &&
+      data.partialAuthorizedBy.size() <= 128 &&
+      data.partialAuthorizedByName is string &&
+      data.partialAuthorizedByName.size() <= 100 &&
+      data.itemCount is int &&
+      data.itemCount >= 1 &&
+      data.itemCount <= 100 &&
+      (data.totalDispatchedQty is int || data.totalDispatchedQty is float) &&
+      data.totalDispatchedQty > 0 &&
+      data.totalDispatchedQty <= 100000000 &&
+      data.dispatchedBy is string &&
+      isValidId(data.dispatchedBy) &&
+      data.dispatchedByName is string &&
+      data.dispatchedByName.size() >= 1 &&
+      data.dispatchedByName.size() <= 100 &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidDispatchItem(data, itemId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'dispatchId', 'salesOrderId', 'salesOrderItemId', 'salesmanUid',
+        'productId', 'productName', 'productSku', 'packetSize', 'orderedQuantity',
+        'dispatchedQuantity', 'createdBy', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'dispatchId', 'salesOrderId', 'salesOrderItemId', 'salesmanUid',
+        'productId', 'productName', 'productSku', 'packetSize', 'orderedQuantity',
+        'dispatchedQuantity', 'createdBy', 'createdAt'
+      ]) &&
+      data.id is string &&
+      data.id == itemId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.dispatchId is string &&
+      isValidId(data.dispatchId) &&
+      data.salesOrderId is string &&
+      isValidId(data.salesOrderId) &&
+      data.salesOrderItemId is string &&
+      isValidId(data.salesOrderItemId) &&
+      data.salesmanUid is string &&
+      isValidId(data.salesmanUid) &&
+      data.productId is string &&
+      isValidId(data.productId) &&
+      data.productName is string &&
+      data.productName.size() >= 1 &&
+      data.productName.size() <= 120 &&
+      data.productSku is string &&
+      data.productSku.size() >= 1 &&
+      data.productSku.size() <= 40 &&
+      data.productSku.matches('^[A-Z0-9\\-_]+$') &&
+      data.packetSize is string &&
+      data.packetSize.size() >= 1 &&
+      data.packetSize.size() <= 30 &&
+      (data.orderedQuantity is int || data.orderedQuantity is float) &&
+      data.orderedQuantity > 0 &&
+      data.orderedQuantity <= 100000000 &&
+      (data.dispatchedQuantity is int || data.dispatchedQuantity is float) &&
+      data.dispatchedQuantity > 0 &&
+      data.dispatchedQuantity <= data.orderedQuantity &&
+      data.createdBy is string &&
+      isValidId(data.createdBy) &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidPayment(data, paymentId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'receiptNumber', 'invoiceId', 'invoiceNumber', 'salesOrderId', 'orderNumber',
+        'salesmanUid', 'customerId', 'customerName', 'paymentDate', 'amount', 'paymentMethod',
+        'referenceNumber', 'notes', 'recordedBy', 'recordedByName', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'receiptNumber', 'invoiceId', 'invoiceNumber', 'salesOrderId', 'orderNumber',
+        'salesmanUid', 'customerId', 'customerName', 'paymentDate', 'amount', 'paymentMethod',
+        'referenceNumber', 'notes', 'recordedBy', 'recordedByName', 'createdAt'
+      ]) &&
+      data.id is string &&
+      data.id == paymentId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.receiptNumber is string &&
+      data.receiptNumber.size() >= 1 &&
+      data.receiptNumber.size() <= 40 &&
+      data.receiptNumber.matches('^[A-Z0-9\\-_]+$') &&
+      data.invoiceId is string &&
+      isValidId(data.invoiceId) &&
+      data.invoiceNumber is string &&
+      data.invoiceNumber.size() >= 1 &&
+      data.invoiceNumber.size() <= 40 &&
+      data.invoiceNumber.matches('^[A-Z0-9\\-_]+$') &&
+      data.salesOrderId is string &&
+      isValidId(data.salesOrderId) &&
+      data.orderNumber is string &&
+      data.orderNumber.size() >= 1 &&
+      data.orderNumber.size() <= 40 &&
+      data.orderNumber.matches('^[A-Z0-9\\-_]+$') &&
+      data.salesmanUid is string &&
+      isValidId(data.salesmanUid) &&
+      data.customerId is string &&
+      isValidId(data.customerId) &&
+      data.customerName is string &&
+      data.customerName.size() >= 1 &&
+      data.customerName.size() <= 120 &&
+      data.paymentDate is string &&
+      data.paymentDate.size() == 10 &&
+      data.paymentDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+      (data.amount is int || data.amount is float) &&
+      data.amount > 0 &&
+      data.amount <= 1000000000 &&
+      data.paymentMethod is string &&
+      data.paymentMethod in ['UPI', 'NEFT/RTGS', 'Bank Transfer', 'Cheque', 'Cash'] &&
+      data.referenceNumber is string &&
+      data.referenceNumber.size() >= 1 &&
+      data.referenceNumber.size() <= 80 &&
+      data.notes is string &&
+      data.notes.size() <= 300 &&
+      data.recordedBy is string &&
+      isValidId(data.recordedBy) &&
+      data.recordedByName is string &&
+      data.recordedByName.size() >= 1 &&
+      data.recordedByName.size() <= 100 &&
+      data.createdAt is timestamp;
+    }
+
+    function isValidProductionCosting(data, costingId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'productionOrderId', 'orderNumber', 'productId', 'productName', 'productionDate',
+        'labourCost', 'gasElectricityCost', 'otherExpenses', 'notes', 'recordedBy', 'recordedByName',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'productionOrderId', 'orderNumber', 'productId', 'productName', 'productionDate',
+        'labourCost', 'gasElectricityCost', 'otherExpenses', 'notes', 'recordedBy', 'recordedByName',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.id is string &&
+      data.id == costingId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.productionOrderId is string &&
+      data.productionOrderId == costingId &&
+      isValidId(data.productionOrderId) &&
+      data.orderNumber is string &&
+      data.orderNumber.size() >= 1 &&
+      data.orderNumber.size() <= 40 &&
+      data.orderNumber.matches('^[A-Z0-9\\-_]+$') &&
+      data.productId is string &&
+      isValidId(data.productId) &&
+      data.productName is string &&
+      data.productName.size() >= 1 &&
+      data.productName.size() <= 120 &&
+      data.productionDate is string &&
+      data.productionDate.size() == 10 &&
+      data.productionDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+      (data.labourCost is int || data.labourCost is float) &&
+      data.labourCost >= 0 &&
+      data.labourCost <= 100000000 &&
+      (data.gasElectricityCost is int || data.gasElectricityCost is float) &&
+      data.gasElectricityCost >= 0 &&
+      data.gasElectricityCost <= 100000000 &&
+      (data.otherExpenses is int || data.otherExpenses is float) &&
+      data.otherExpenses >= 0 &&
+      data.otherExpenses <= 100000000 &&
+      data.notes is string &&
+      data.notes.size() <= 500 &&
+      data.recordedBy is string &&
+      isValidId(data.recordedBy) &&
+      data.recordedByName is string &&
+      data.recordedByName.size() >= 1 &&
+      data.recordedByName.size() <= 100 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidAuditLog(data, logId) {
+      return data.keys().hasAll([
+        'id', 'orgId', 'action', 'module', 'recordId', 'recordLabel', 'details',
+        'userUid', 'userName', 'userRole', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'orgId', 'action', 'module', 'recordId', 'recordLabel', 'details',
+        'userUid', 'userName', 'userRole', 'createdAt'
+      ]) &&
+      data.id is string &&
+      data.id == logId &&
+      isValidId(data.id) &&
+      data.orgId == 'snackfactory' &&
+      data.action is string &&
+      data.action.size() >= 1 &&
+      data.action.size() <= 80 &&
+      data.module is string &&
+      data.module.size() >= 1 &&
+      data.module.size() <= 60 &&
+      data.recordId is string &&
+      data.recordId.size() >= 1 &&
+      data.recordId.size() <= 132 &&
+      data.recordLabel is string &&
+      data.recordLabel.size() >= 1 &&
+      data.recordLabel.size() <= 120 &&
+      data.details is string &&
+      data.details.size() >= 1 &&
+      data.details.size() <= 500 &&
+      data.userUid is string &&
+      isValidId(data.userUid) &&
+      data.userName is string &&
+      data.userName.size() >= 1 &&
+      data.userName.size() <= 100 &&
+      isValidRole(data.userRole) &&
+      data.createdAt is timestamp;
+    }
+
+    match /system/{docId} {
+      allow get: if isSignedIn() && docId == 'bootstrap';
+
+      allow create: if isSignedIn() &&
+        docId == 'bootstrap' &&
+        !exists(/databases/$(database)/documents/system/bootstrap) &&
+        incoming().keys().hasAll(['initialized', 'ownerUid', 'createdAt']) &&
+        incoming().keys().hasOnly(['initialized', 'ownerUid', 'createdAt']) &&
+        incoming().initialized == true &&
+        incoming().ownerUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        existsAfter(/databases/$(database)/documents/users/$(request.auth.uid));
+
+      allow update, delete: if false;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (
+        request.auth.uid == userId || isOwnerOrAdmin()
+      );
+
+      allow list: if isSignedIn() && (
+        resource.data.uid == request.auth.uid || isOwnerOrAdmin()
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(userId) &&
+        isValidUser(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        incoming().lastLoginAt == request.time &&
+        (
+          (
+            request.auth.uid == userId &&
+            'username' in incoming() &&
+            incoming().role == 'Owner' &&
+            incoming().status == 'Active' &&
+            !exists(/databases/$(database)/documents/system/bootstrap) &&
+            existsAfter(/databases/$(database)/documents/system/bootstrap)
+          ) ||
+          (
+            isOwnerOrAdmin() &&
+            'username' in incoming()
+          )
+        );
+
+      allow update: if isSignedIn() &&
+        isValidId(userId) &&
+        isValidUser(incoming(), userId) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          (
+            request.auth.uid == userId &&
+            incoming().role == existing().role &&
+            incoming().status == existing().status &&
+            incoming().email == existing().email &&
+            (!('lastLoginAt' in incoming().diff(existing()).affectedKeys()) || incoming().lastLoginAt == request.time) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName',
+              'photoURL',
+              'department',
+              'updatedAt',
+              'lastLoginAt'
+            ])
+          ) ||
+          (
+            isOwnerOrAdmin() &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'role',
+              'department',
+              'status',
+              'displayName',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isSignedIn() &&
+        isValidId(userId) &&
+        isOwnerOrAdmin() &&
+        request.auth.uid != userId;
+    }
+
+    match /products/{productId} {
+      allow get: if isValidId(productId) && hasRole([
+        'Owner',
+        'Admin',
+        'Salesman',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Salesman',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(productId) &&
+        isValidProduct(incoming(), productId) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isOwnerOrAdmin();
+
+      allow update: if isSignedIn() &&
+        isValidId(productId) &&
+        isValidProduct(incoming(), productId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isOwnerOrAdmin() &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name',
+          'sku',
+          'category',
+          'description',
+          'packetSize',
+          'sellingPrice',
+          'gstPercentage',
+          'hsnCode',
+          'status',
+          'updatedAt'
+        ]);
+
+      allow delete: if isSignedIn() &&
+        isValidId(productId) &&
+        isOwnerOrAdmin();
+    }
+
+    match /rawMaterials/{materialId} {
+      allow get: if isValidId(materialId) && hasRole([
+        'Owner',
+        'Admin',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(materialId) &&
+        isValidRawMaterial(incoming(), materialId) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+
+      allow update: if isSignedIn() &&
+        isValidId(materialId) &&
+        isValidRawMaterial(incoming(), materialId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name',
+          'materialCode',
+          'category',
+          'unit',
+          'openingStock',
+          'currentStock',
+          'purchasePrice',
+          'minimumStockLevel',
+          'updatedAt'
+        ]);
+
+      allow delete: if isSignedIn() &&
+        isValidId(materialId) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+    }
+
+    match /customers/{customerId} {
+      allow get: if isValidId(customerId) && hasRole([
+        'Owner',
+        'Admin',
+        'Salesman',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Salesman',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(customerId) &&
+        isValidCustomer(incoming(), customerId) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        hasRole(['Owner', 'Admin', 'Salesman']);
+
+      allow update: if isSignedIn() &&
+        isValidId(customerId) &&
+        isValidCustomer(incoming(), customerId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        hasRole(['Owner', 'Admin', 'Salesman']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name',
+          'contactPerson',
+          'phone',
+          'email',
+          'gstin',
+          'billingAddress',
+          'state',
+          'stateCode',
+          'customerType',
+          'updatedAt'
+        ]);
+
+      allow delete: if isSignedIn() &&
+        isValidId(customerId) &&
+        isOwnerOrAdmin();
+    }
+
+    match /suppliers/{supplierId} {
+      allow get: if isValidId(supplierId) && hasRole([
+        'Owner',
+        'Admin',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(supplierId) &&
+        isValidSupplier(incoming(), supplierId) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+
+      allow update: if isSignedIn() &&
+        isValidId(supplierId) &&
+        isValidSupplier(incoming(), supplierId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name',
+          'contactPerson',
+          'phone',
+          'email',
+          'gstin',
+          'address',
+          'state',
+          'updatedAt'
+        ]);
+
+      allow delete: if isSignedIn() &&
+        isValidId(supplierId) &&
+        isOwnerOrAdmin();
+    }
+
+    match /purchases/{purchaseId} {
+      allow get: if isValidId(purchaseId) && hasRole([
+        'Owner',
+        'Admin',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(purchaseId) &&
+        isValidPurchase(incoming(), purchaseId) &&
+        incoming().receiptStatus == 'Ordered' &&
+        !('receivedBy' in incoming()) &&
+        !('receivedAt' in incoming()) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/suppliers/$(incoming().supplierId)) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+
+      allow update: if isSignedIn() &&
+        isValidId(purchaseId) &&
+        isValidPurchase(incoming(), purchaseId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']) &&
+        (
+          (
+            existing().receiptStatus == 'Ordered' &&
+            incoming().receiptStatus == 'Ordered' &&
+            !('receivedBy' in incoming()) &&
+            !('receivedAt' in incoming()) &&
+            exists(/databases/$(database)/documents/suppliers/$(incoming().supplierId)) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'poNumber',
+              'supplierId',
+              'supplierName',
+              'supplierGstin',
+              'purchaseDate',
+              'invoiceNumber',
+              'paymentStatus',
+              'itemCount',
+              'subtotal',
+              'gstTotal',
+              'grandTotal',
+              'notes',
+              'updatedAt'
+            ])
+          ) ||
+          (
+            existing().receiptStatus == 'Ordered' &&
+            incoming().receiptStatus == 'Received' &&
+            incoming().receivedBy == request.auth.uid &&
+            incoming().receivedAt == request.time &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'receiptStatus',
+              'receivedBy',
+              'receivedAt',
+              'invoiceNumber',
+              'paymentStatus',
+              'notes',
+              'updatedAt'
+            ])
+          ) ||
+          (
+            existing().receiptStatus == 'Ordered' &&
+            incoming().receiptStatus == 'Cancelled' &&
+            !('receivedBy' in incoming()) &&
+            !('receivedAt' in incoming()) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'receiptStatus',
+              'notes',
+              'updatedAt'
+            ])
+          ) ||
+          (
+            existing().receiptStatus == 'Received' &&
+            incoming().receiptStatus == 'Received' &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'paymentStatus',
+              'invoiceNumber',
+              'notes',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isSignedIn() &&
+        isValidId(purchaseId) &&
+        existing().receiptStatus != 'Received' &&
+        isOwnerOrAdmin();
+    }
+
+    match /purchaseItems/{itemId} {
+      allow get: if isValidId(itemId) && hasRole([
+        'Owner',
+        'Admin',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(itemId) &&
+        isValidPurchaseItem(incoming(), itemId) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (
+          exists(/databases/$(database)/documents/purchases/$(incoming().purchaseId)) ||
+          existsAfter(/databases/$(database)/documents/purchases/$(incoming().purchaseId))
+        ) &&
+        exists(/databases/$(database)/documents/rawMaterials/$(incoming().rawMaterialId)) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+
+      allow update: if isSignedIn() &&
+        isValidId(itemId) &&
+        isValidPurchaseItem(incoming(), itemId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().purchaseId == existing().purchaseId &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        get(/databases/$(database)/documents/purchases/$(existing().purchaseId)).data.receiptStatus == 'Ordered' &&
+        exists(/databases/$(database)/documents/rawMaterials/$(incoming().rawMaterialId)) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'rawMaterialId',
+          'materialName',
+          'materialCode',
+          'unit',
+          'quantity',
+          'unitPrice',
+          'gstPercentage',
+          'lineSubtotal',
+          'lineGst',
+          'lineTotal',
+          'updatedAt'
+        ]);
+
+      allow delete: if isSignedIn() &&
+        isValidId(itemId) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']) &&
+        (
+          !exists(/databases/$(database)/documents/purchases/$(existing().purchaseId)) ||
+          get(/databases/$(database)/documents/purchases/$(existing().purchaseId)).data.receiptStatus != 'Received'
+        );
+    }
+
+    match /bom/{bomId} {
+      allow get: if isValidId(bomId) && hasRole([
+        'Owner',
+        'Admin',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(bomId) &&
+        isValidBom(incoming(), bomId) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/products/$(incoming().productId)) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+
+      allow update: if isSignedIn() &&
+        isValidId(bomId) &&
+        isValidBom(incoming(), bomId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/products/$(incoming().productId)) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'bomCode',
+          'productId',
+          'productName',
+          'productSku',
+          'packetSize',
+          'version',
+          'batchSize',
+          'status',
+          'itemCount',
+          'estimatedMaterialCost',
+          'costPerUnit',
+          'notes',
+          'updatedAt'
+        ]);
+
+      allow delete: if isSignedIn() &&
+        isValidId(bomId) &&
+        isOwnerOrAdmin();
+    }
+
+    match /bomItems/{itemId} {
+      allow get: if isValidId(itemId) && hasRole([
+        'Owner',
+        'Admin',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(itemId) &&
+        isValidBomItem(incoming(), itemId) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (
+          exists(/databases/$(database)/documents/bom/$(incoming().bomId)) ||
+          existsAfter(/databases/$(database)/documents/bom/$(incoming().bomId))
+        ) &&
+        exists(/databases/$(database)/documents/rawMaterials/$(incoming().rawMaterialId)) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+
+      allow update: if isSignedIn() &&
+        isValidId(itemId) &&
+        isValidBomItem(incoming(), itemId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().bomId == existing().bomId &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/rawMaterials/$(incoming().rawMaterialId)) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'rawMaterialId',
+          'materialName',
+          'materialCode',
+          'stockUnit',
+          'unit',
+          'quantity',
+          'unitCost',
+          'estimatedCost',
+          'updatedAt'
+        ]);
+
+      allow delete: if isSignedIn() &&
+        isValidId(itemId) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+    }
+
+    match /productionOrders/{orderId} {
+      allow get: if isValidId(orderId) && hasRole([
+        'Owner',
+        'Admin',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(orderId) &&
+        isValidProductionOrder(incoming(), orderId) &&
+        incoming().status == 'Planned' &&
+        incoming().materialsIssued == false &&
+        incoming().finishedGoodsPosted == false &&
+        incoming().actualGoodQuantity == 0 &&
+        incoming().damagedQuantity == 0 &&
+        !('issuedBy' in incoming()) &&
+        !('issuedAt' in incoming()) &&
+        !('completedBy' in incoming()) &&
+        !('completedAt' in incoming()) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/products/$(incoming().productId)) &&
+        exists(/databases/$(database)/documents/bom/$(incoming().bomId)) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+
+      allow update: if isSignedIn() &&
+        isValidId(orderId) &&
+        isValidProductionOrder(incoming(), orderId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']) &&
+        (
+          (
+            existing().status == 'Planned' &&
+            existing().materialsIssued == false &&
+            incoming().status == 'In Progress' &&
+            incoming().materialsIssued == true &&
+            incoming().finishedGoodsPosted == false &&
+            incoming().issuedBy == request.auth.uid &&
+            incoming().issuedAt == request.time &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'status',
+              'materialsIssued',
+              'issuedBy',
+              'issuedAt',
+              'updatedAt'
+            ])
+          ) ||
+          (
+            existing().status == 'In Progress' &&
+            existing().materialsIssued == true &&
+            existing().finishedGoodsPosted == false &&
+            incoming().status == 'Completed' &&
+            incoming().materialsIssued == true &&
+            incoming().finishedGoodsPosted == true &&
+            incoming().completedBy == request.auth.uid &&
+            incoming().completedAt == request.time &&
+            existsAfter(/databases/$(database)/documents/productionVariances/$(orderId)) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'status',
+              'finishedGoodsPosted',
+              'actualGoodQuantity',
+              'damagedQuantity',
+              'notes',
+              'completedBy',
+              'completedAt',
+              'updatedAt'
+            ])
+          ) ||
+          (
+            existing().status == 'Planned' &&
+            existing().materialsIssued == false &&
+            incoming().status == 'Cancelled' &&
+            incoming().materialsIssued == false &&
+            incoming().finishedGoodsPosted == false &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'status',
+              'notes',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isSignedIn() &&
+        isValidId(orderId) &&
+        existing().materialsIssued == false &&
+        existing().finishedGoodsPosted == false &&
+        existing().status in ['Planned', 'Cancelled'] &&
+        isOwnerOrAdmin();
+    }
+
+    match /productionConsumption/{itemId} {
+      allow get: if isValidId(itemId) && hasRole([
+        'Owner',
+        'Admin',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(itemId) &&
+        isValidProductionConsumption(incoming(), itemId) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (
+          exists(/databases/$(database)/documents/productionOrders/$(incoming().productionOrderId)) ||
+          existsAfter(/databases/$(database)/documents/productionOrders/$(incoming().productionOrderId))
+        ) &&
+        exists(/databases/$(database)/documents/rawMaterials/$(incoming().rawMaterialId)) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+
+      allow update: if isSignedIn() &&
+        isValidId(itemId) &&
+        isValidProductionConsumption(incoming(), itemId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().productionOrderId == existing().productionOrderId &&
+        incoming().rawMaterialId == existing().rawMaterialId &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        get(/databases/$(database)/documents/productionOrders/$(existing().productionOrderId)).data.finishedGoodsPosted == false &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'issuedQuantity',
+          'actualConsumedQuantity',
+          'damagedMaterialQuantity',
+          'varianceQuantity',
+          'updatedAt'
+        ]);
+
+      allow delete: if isSignedIn() &&
+        isValidId(itemId) &&
+        isOwnerOrAdmin() &&
+        (
+          !exists(/databases/$(database)/documents/productionOrders/$(existing().productionOrderId)) ||
+          get(/databases/$(database)/documents/productionOrders/$(existing().productionOrderId)).data.materialsIssued == false
+        );
+    }
+
+    match /stockBalances/{balanceId} {
+      allow get: if isValidId(balanceId) && hasRole([
+        'Owner',
+        'Admin',
+        'Salesman',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Salesman',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(balanceId) &&
+        isValidStockBalance(incoming(), balanceId) &&
+        incoming().updatedBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+
+      allow update: if isSignedIn() &&
+        isValidId(balanceId) &&
+        isValidStockBalance(incoming(), balanceId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().itemId == existing().itemId &&
+        incoming().stockCategory == existing().stockCategory &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedBy == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'itemCode',
+          'itemName',
+          'unit',
+          'openingStock',
+          'receivedFromPurchases',
+          'issuedToProduction',
+          'receivedFromProduction',
+          'dispatchedThroughSales',
+          'adjustmentsNet',
+          'currentBalance',
+          'minimumStockLevel',
+          'updatedBy',
+          'updatedByName',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    match /inventoryLedger/{entryId} {
+      allow get: if isValidId(entryId) && hasRole([
+        'Owner',
+        'Admin',
+        'Salesman',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Salesman',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(entryId) &&
+        isValidInventoryLedgerEntry(incoming(), entryId) &&
+        incoming().userUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+
+      allow update, delete: if false;
+    }
+
+    match /productionVariances/{varianceId} {
+      allow get: if isValidId(varianceId) && hasRole([
+        'Owner',
+        'Admin',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(varianceId) &&
+        isValidProductionVariance(incoming(), varianceId) &&
+        incoming().productionOrderId == varianceId &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        exists(/databases/$(database)/documents/productionOrders/$(incoming().productionOrderId)) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+
+      allow update, delete: if false;
+    }
+
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId) && settingId == 'factoryConfig' && hasRole([
+        'Owner',
+        'Admin',
+        'Salesman',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Salesman',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(settingId) &&
+        isValidFactorySettings(incoming(), settingId) &&
+        incoming().updatedBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        hasRole(['Owner', 'Admin', 'Accountant/Auditor']);
+
+      allow update: if isSignedIn() &&
+        isValidId(settingId) &&
+        isValidFactorySettings(incoming(), settingId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedBy == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        (
+          (
+            isOwnerOrAdmin() &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'factoryName',
+              'factoryAddress',
+              'factoryState',
+              'factoryStateCode',
+              'factoryGstin',
+              'invoicePrefix',
+              'nextInvoiceSeq',
+              'defaultHsnCode',
+              'updatedBy',
+              'updatedAt'
+            ])
+          ) ||
+          (
+            hasRole(['Owner', 'Admin', 'Accountant/Auditor']) &&
+            incoming().nextInvoiceSeq == existing().nextInvoiceSeq + 1 &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'nextInvoiceSeq',
+              'updatedBy',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    match /salesOrders/{orderId} {
+      allow get: if isValidId(orderId) && isSignedIn() && (
+        hasRole(['Owner', 'Admin', 'Accountant/Auditor', 'Production Supervisor']) ||
+        (hasRole(['Salesman']) && existing().salesmanUid == request.auth.uid)
+      );
+
+      allow list: if isSignedIn() && (
+        (resource.data.orgId == 'snackfactory' && hasRole(['Owner', 'Admin', 'Accountant/Auditor', 'Production Supervisor'])) ||
+        (hasRole(['Salesman']) && resource.data.salesmanUid == request.auth.uid)
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(orderId) &&
+        isValidSalesOrder(incoming(), orderId) &&
+        incoming().status in ['Draft', 'Pending Approval'] &&
+        incoming().totalDispatchedQty == 0 &&
+        incoming().invoiceId == '' &&
+        incoming().invoiceNumber == '' &&
+        !('approverUid' in incoming()) &&
+        !('approverName' in incoming()) &&
+        !('approvedAt' in incoming()) &&
+        !('approvalRemarks' in incoming()) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/customers/$(incoming().customerId)) &&
+        (
+          isOwnerOrAdmin() ||
+          (hasRole(['Salesman']) && incoming().salesmanUid == request.auth.uid)
+        );
+
+      allow update: if isSignedIn() &&
+        isValidId(orderId) &&
+        isValidSalesOrder(incoming(), orderId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          (
+            existing().status in ['Draft', 'Pending Approval'] &&
+            existing().totalDispatchedQty == 0 &&
+            existing().invoiceId == '' &&
+            incoming().status in ['Draft', 'Pending Approval', 'Cancelled'] &&
+            !('approverUid' in incoming()) &&
+            !('approverName' in incoming()) &&
+            !('approvedAt' in incoming()) &&
+            !('approvalRemarks' in incoming()) &&
+            exists(/databases/$(database)/documents/customers/$(incoming().customerId)) &&
+            (
+              isOwnerOrAdmin() ||
+              (hasRole(['Salesman']) && existing().salesmanUid == request.auth.uid && incoming().salesmanUid == existing().salesmanUid)
+            ) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'orderNumber',
+              'customerId',
+              'customerName',
+              'customerGstin',
+              'customerAddress',
+              'customerState',
+              'customerStateCode',
+              'orderDate',
+              'expectedDeliveryDate',
+              'salesmanUid',
+              'salesmanName',
+              'status',
+              'itemCount',
+              'totalOrderedQty',
+              'taxType',
+              'subtotal',
+              'cgstTotal',
+              'sgstTotal',
+              'igstTotal',
+              'gstTotal',
+              'grandTotal',
+              'notes',
+              'updatedAt'
+            ])
+          ) ||
+          (
+            existing().status == 'Pending Approval' &&
+            incoming().status in ['Approved', 'Rejected'] &&
+            isOwnerOrAdmin() &&
+            incoming().approverUid == request.auth.uid &&
+            incoming().approvedAt == request.time &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'status',
+              'approverUid',
+              'approverName',
+              'approvedAt',
+              'approvalRemarks',
+              'updatedAt'
+            ])
+          ) ||
+          (
+            existing().status in ['Approved', 'Partially Dispatched'] &&
+            incoming().status in ['Partially Dispatched', 'Dispatched'] &&
+            incoming().totalDispatchedQty > existing().totalDispatchedQty &&
+            incoming().totalDispatchedQty <= existing().totalOrderedQty &&
+            (
+              isOwnerOrAdmin() ||
+              (hasRole(['Production Supervisor']) && incoming().status == 'Dispatched')
+            ) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'status',
+              'totalDispatchedQty',
+              'updatedAt'
+            ])
+          ) ||
+          (
+            existing().status in ['Approved', 'Partially Dispatched', 'Dispatched'] &&
+            existing().invoiceId == '' &&
+            incoming().invoiceId == 'inv_' + orderId &&
+            incoming().invoiceNumber.size() >= 1 &&
+            existsAfter(/databases/$(database)/documents/invoices/$(incoming().invoiceId)) &&
+            hasRole(['Owner', 'Admin', 'Accountant/Auditor']) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'invoiceId',
+              'invoiceNumber',
+              'updatedAt'
+            ])
+          ) ||
+          (
+            existing().status == 'Approved' &&
+            existing().totalDispatchedQty == 0 &&
+            existing().invoiceId == '' &&
+            incoming().status == 'Cancelled' &&
+            isOwnerOrAdmin() &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'status',
+              'notes',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isSignedIn() &&
+        isValidId(orderId) &&
+        isOwnerOrAdmin() &&
+        existing().status in ['Draft', 'Rejected', 'Cancelled'] &&
+        existing().totalDispatchedQty == 0 &&
+        existing().invoiceId == '';
+    }
+
+    match /salesOrderItems/{itemId} {
+      allow get: if isValidId(itemId) && isSignedIn() && (
+        hasRole(['Owner', 'Admin', 'Accountant/Auditor', 'Production Supervisor']) ||
+        (hasRole(['Salesman']) && existing().salesmanUid == request.auth.uid)
+      );
+
+      allow list: if isSignedIn() && (
+        (resource.data.orgId == 'snackfactory' && hasRole(['Owner', 'Admin', 'Accountant/Auditor', 'Production Supervisor'])) ||
+        (hasRole(['Salesman']) && resource.data.salesmanUid == request.auth.uid)
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(itemId) &&
+        isValidSalesOrderItem(incoming(), itemId) &&
+        incoming().dispatchedQuantity == 0 &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (
+          exists(/databases/$(database)/documents/salesOrders/$(incoming().salesOrderId)) ||
+          existsAfter(/databases/$(database)/documents/salesOrders/$(incoming().salesOrderId))
+        ) &&
+        exists(/databases/$(database)/documents/products/$(incoming().productId)) &&
+        (
+          isOwnerOrAdmin() ||
+          (hasRole(['Salesman']) && incoming().salesmanUid == request.auth.uid)
+        );
+
+      allow update: if isSignedIn() &&
+        isValidId(itemId) &&
+        isValidSalesOrderItem(incoming(), itemId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().salesOrderId == existing().salesOrderId &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          (
+            get(/databases/$(database)/documents/salesOrders/$(existing().salesOrderId)).data.status in ['Draft', 'Pending Approval'] &&
+            get(/databases/$(database)/documents/salesOrders/$(existing().salesOrderId)).data.totalDispatchedQty == 0 &&
+            exists(/databases/$(database)/documents/products/$(incoming().productId)) &&
+            (
+              isOwnerOrAdmin() ||
+              (hasRole(['Salesman']) && existing().salesmanUid == request.auth.uid && incoming().salesmanUid == existing().salesmanUid)
+            ) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'salesmanUid',
+              'productId',
+              'productName',
+              'productSku',
+              'packetSize',
+              'hsnCode',
+              'quantity',
+              'sellingPrice',
+              'gstPercentage',
+              'lineSubtotal',
+              'cgstAmount',
+              'sgstAmount',
+              'igstAmount',
+              'lineGst',
+              'lineTotal',
+              'updatedAt'
+            ])
+          ) ||
+          (
+            get(/databases/$(database)/documents/salesOrders/$(existing().salesOrderId)).data.status in ['Approved', 'Partially Dispatched'] &&
+            incoming().dispatchedQuantity >= existing().dispatchedQuantity &&
+            incoming().dispatchedQuantity <= existing().quantity &&
+            hasRole(['Owner', 'Admin', 'Production Supervisor']) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'dispatchedQuantity',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isSignedIn() &&
+        isValidId(itemId) &&
+        (
+          isOwnerOrAdmin() ||
+          (hasRole(['Salesman']) && existing().salesmanUid == request.auth.uid)
+        ) &&
+        (
+          !exists(/databases/$(database)/documents/salesOrders/$(existing().salesOrderId)) ||
+          (
+            get(/databases/$(database)/documents/salesOrders/$(existing().salesOrderId)).data.status in ['Draft', 'Pending Approval', 'Rejected', 'Cancelled'] &&
+            get(/databases/$(database)/documents/salesOrders/$(existing().salesOrderId)).data.totalDispatchedQty == 0 &&
+            get(/databases/$(database)/documents/salesOrders/$(existing().salesOrderId)).data.invoiceId == ''
+          )
+        );
+    }
+
+    match /invoices/{invoiceId} {
+      allow get: if isValidId(invoiceId) && isSignedIn() && (
+        hasRole(['Owner', 'Admin', 'Accountant/Auditor']) ||
+        (hasRole(['Salesman']) && existing().salesmanUid == request.auth.uid)
+      );
+
+      allow list: if isSignedIn() && (
+        (resource.data.orgId == 'snackfactory' && hasRole(['Owner', 'Admin', 'Accountant/Auditor'])) ||
+        (hasRole(['Salesman']) && resource.data.salesmanUid == request.auth.uid)
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(invoiceId) &&
+        isValidInvoice(incoming(), invoiceId) &&
+        incoming().amountPaid == 0 &&
+        incoming().outstandingBalance == incoming().grandTotal &&
+        incoming().paymentStatus == 'Unpaid' &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/salesOrders/$(incoming().salesOrderId)) &&
+        get(/databases/$(database)/documents/salesOrders/$(incoming().salesOrderId)).data.status in ['Approved', 'Partially Dispatched', 'Dispatched'] &&
+        get(/databases/$(database)/documents/salesOrders/$(incoming().salesOrderId)).data.invoiceId == '' &&
+        getAfter(/databases/$(database)/documents/salesOrders/$(incoming().salesOrderId)).data.invoiceId == invoiceId &&
+        hasRole(['Owner', 'Admin', 'Accountant/Auditor']);
+
+      allow update: if isSignedIn() &&
+        isValidId(invoiceId) &&
+        isValidInvoice(incoming(), invoiceId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().invoiceNumber == existing().invoiceNumber &&
+        incoming().salesOrderId == existing().salesOrderId &&
+        incoming().grandTotal == existing().grandTotal &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().amountPaid >= existing().amountPaid &&
+        incoming().amountPaid <= existing().grandTotal &&
+        incoming().outstandingBalance >= 0 &&
+        incoming().outstandingBalance <= existing().grandTotal &&
+        hasRole(['Owner', 'Admin', 'Accountant/Auditor']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'amountPaid',
+          'outstandingBalance',
+          'paymentStatus',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    match /invoiceItems/{itemId} {
+      allow get: if isValidId(itemId) && isSignedIn() && (
+        hasRole(['Owner', 'Admin', 'Accountant/Auditor']) ||
+        (hasRole(['Salesman']) && existing().salesmanUid == request.auth.uid)
+      );
+
+      allow list: if isSignedIn() && (
+        (resource.data.orgId == 'snackfactory' && hasRole(['Owner', 'Admin', 'Accountant/Auditor'])) ||
+        (hasRole(['Salesman']) && resource.data.salesmanUid == request.auth.uid)
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(itemId) &&
+        isValidInvoiceItem(incoming(), itemId) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        (
+          exists(/databases/$(database)/documents/invoices/$(incoming().invoiceId)) ||
+          existsAfter(/databases/$(database)/documents/invoices/$(incoming().invoiceId))
+        ) &&
+        hasRole(['Owner', 'Admin', 'Accountant/Auditor']);
+
+      allow update, delete: if false;
+    }
+
+    match /dispatches/{dispatchId} {
+      allow get: if isValidId(dispatchId) && isSignedIn() && (
+        hasRole(['Owner', 'Admin', 'Production Supervisor', 'Accountant/Auditor']) ||
+        (hasRole(['Salesman']) && existing().salesmanUid == request.auth.uid)
+      );
+
+      allow list: if isSignedIn() && (
+        (resource.data.orgId == 'snackfactory' && hasRole(['Owner', 'Admin', 'Production Supervisor', 'Accountant/Auditor'])) ||
+        (hasRole(['Salesman']) && resource.data.salesmanUid == request.auth.uid)
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(dispatchId) &&
+        isValidDispatch(incoming(), dispatchId) &&
+        incoming().dispatchedBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        exists(/databases/$(database)/documents/salesOrders/$(incoming().salesOrderId)) &&
+        get(/databases/$(database)/documents/salesOrders/$(incoming().salesOrderId)).data.status in ['Approved', 'Partially Dispatched'] &&
+        (
+          isOwnerOrAdmin() ||
+          (hasRole(['Production Supervisor']) && incoming().isPartial == false)
+        );
+
+      allow update, delete: if false;
+    }
+
+    match /dispatchItems/{itemId} {
+      allow get: if isValidId(itemId) && isSignedIn() && (
+        hasRole(['Owner', 'Admin', 'Production Supervisor', 'Accountant/Auditor']) ||
+        (hasRole(['Salesman']) && existing().salesmanUid == request.auth.uid)
+      );
+
+      allow list: if isSignedIn() && (
+        (resource.data.orgId == 'snackfactory' && hasRole(['Owner', 'Admin', 'Production Supervisor', 'Accountant/Auditor'])) ||
+        (hasRole(['Salesman']) && resource.data.salesmanUid == request.auth.uid)
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(itemId) &&
+        isValidDispatchItem(incoming(), itemId) &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        (
+          exists(/databases/$(database)/documents/dispatches/$(incoming().dispatchId)) ||
+          existsAfter(/databases/$(database)/documents/dispatches/$(incoming().dispatchId))
+        ) &&
+        hasRole(['Owner', 'Admin', 'Production Supervisor']);
+
+      allow update, delete: if false;
+    }
+
+    match /payments/{paymentId} {
+      allow get: if isValidId(paymentId) && isSignedIn() && (
+        hasRole(['Owner', 'Admin', 'Accountant/Auditor']) ||
+        (hasRole(['Salesman']) && existing().salesmanUid == request.auth.uid)
+      );
+
+      allow list: if isSignedIn() && (
+        (resource.data.orgId == 'snackfactory' && hasRole(['Owner', 'Admin', 'Accountant/Auditor'])) ||
+        (hasRole(['Salesman']) && resource.data.salesmanUid == request.auth.uid)
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(paymentId) &&
+        isValidPayment(incoming(), paymentId) &&
+        incoming().recordedBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        exists(/databases/$(database)/documents/invoices/$(incoming().invoiceId)) &&
+        incoming().amount <= get(/databases/$(database)/documents/invoices/$(incoming().invoiceId)).data.outstandingBalance &&
+        getAfter(/databases/$(database)/documents/invoices/$(incoming().invoiceId)).data.outstandingBalance >= 0 &&
+        hasRole(['Owner', 'Admin', 'Accountant/Auditor']);
+
+      allow update, delete: if false;
+    }
+
+    match /productionCostings/{costingId} {
+      allow get: if isValidId(costingId) && hasRole([
+        'Owner',
+        'Admin',
+        'Production Supervisor',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(costingId) &&
+        isValidProductionCosting(incoming(), costingId) &&
+        incoming().recordedBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/productionOrders/$(incoming().productionOrderId)) &&
+        hasRole(['Owner', 'Admin', 'Accountant/Auditor']);
+
+      allow update: if isSignedIn() &&
+        isValidId(costingId) &&
+        isValidProductionCosting(incoming(), costingId) &&
+        incoming().id == existing().id &&
+        incoming().orgId == existing().orgId &&
+        incoming().productionOrderId == existing().productionOrderId &&
+        incoming().productId == existing().productId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().recordedBy == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        hasRole(['Owner', 'Admin', 'Accountant/Auditor']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'labourCost',
+          'gasElectricityCost',
+          'otherExpenses',
+          'notes',
+          'recordedBy',
+          'recordedByName',
+          'updatedAt'
+        ]);
+
+      allow delete: if isSignedIn() &&
+        isValidId(costingId) &&
+        hasRole(['Owner', 'Admin', 'Accountant/Auditor']);
+    }
+
+    match /auditLogs/{logId} {
+      allow get: if isValidId(logId) && hasRole([
+        'Owner',
+        'Admin',
+        'Accountant/Auditor'
+      ]);
+
+      allow list: if isSignedIn() &&
+        resource.data.orgId == 'snackfactory' &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Accountant/Auditor'
+        ]);
+
+      allow create: if isSignedIn() &&
+        isValidId(logId) &&
+        isValidAuditLog(incoming(), logId) &&
+        incoming().userUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        hasRole([
+          'Owner',
+          'Admin',
+          'Salesman',
+          'Production Supervisor',
+          'Accountant/Auditor'
+        ]);
+
+      allow update, delete: if false;
+    }
+  }
+}

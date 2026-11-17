@@ -1,0 +1,1521 @@
+{
+  "entities": {
+    "SystemBootstrap": {
+      "title": "SystemBootstrap",
+      "description": "One-time initialization lock marking that the initial SnackFactory Owner account has been provisioned.",
+      "type": "object",
+      "properties": {
+        "initialized": {
+          "type": "boolean"
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["initialized", "ownerUid", "createdAt"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Authenticated SnackFactory ERP employee account with username, role-based access control, and organizational metadata.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Authentication user UID matching the document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "username": {
+          "type": "string",
+          "description": "Unique lowercase login username.",
+          "minLength": 3,
+          "maxLength": 30,
+          "pattern": "^[a-z0-9._\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Full display name of the ERP operator.",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Internal Firebase Auth email identifier or verified contact email.",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "Optional profile photo URL.",
+          "maxLength": 500
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "Owner",
+            "Admin",
+            "Salesman",
+            "Production Supervisor",
+            "Accountant/Auditor"
+          ],
+          "description": "Assigned SnackFactory ERP role determining module permissions."
+        },
+        "department": {
+          "type": "string",
+          "description": "Assigned manufacturing or administrative department.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Active", "Suspended"],
+          "description": "Operational account status."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the user record was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the last profile or role update."
+        },
+        "lastLoginAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the most recent authenticated session."
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "role",
+        "department",
+        "status",
+        "createdAt",
+        "updatedAt",
+        "lastLoginAt"
+      ]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Finished snack SKU master record with packet size, selling price, GST rate, and status.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "orgId": {
+          "type": "string",
+          "enum": ["snackfactory"]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sku": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "^[A-Z0-9\\-_]+$"
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "description": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 500
+        },
+        "packetSize": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 30
+        },
+        "sellingPrice": {
+          "type": "number"
+        },
+        "gstPercentage": {
+          "type": "number"
+        },
+        "hsnCode": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 16,
+          "pattern": "^[0-9A-Za-z]*$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Active", "Inactive"]
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "orgId",
+        "name",
+        "sku",
+        "category",
+        "description",
+        "packetSize",
+        "sellingPrice",
+        "gstPercentage",
+        "status",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RawMaterial": {
+      "title": "RawMaterial",
+      "description": "Ingredient or packaging material master record with stock levels, unit pricing, and reorder alert threshold.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "orgId": {
+          "type": "string",
+          "enum": ["snackfactory"]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "materialCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "^[A-Z0-9\\-_]+$"
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "unit": {
+          "type": "string",
+          "enum": ["kg", "litre", "pieces"]
+        },
+        "openingStock": {
+          "type": "number"
+        },
+        "currentStock": {
+          "type": "number"
+        },
+        "purchasePrice": {
+          "type": "number"
+        },
+        "minimumStockLevel": {
+          "type": "number"
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "orgId",
+        "name",
+        "materialCode",
+        "category",
+        "unit",
+        "openingStock",
+        "currentStock",
+        "purchasePrice",
+        "minimumStockLevel",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Retailer or Distributor customer account with GSTIN, billing address, and state code.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "orgId": {
+          "type": "string",
+          "enum": ["snackfactory"]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "contactPerson": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 20
+        },
+        "email": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 254
+        },
+        "gstin": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 15
+        },
+        "billingAddress": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "stateCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 5
+        },
+        "customerType": {
+          "type": "string",
+          "enum": ["Retailer", "Distributor"]
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "orgId",
+        "name",
+        "contactPerson",
+        "phone",
+        "email",
+        "gstin",
+        "billingAddress",
+        "state",
+        "stateCode",
+        "customerType",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Raw material and packaging vendor master record with GSTIN, address, and state.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "orgId": {
+          "type": "string",
+          "enum": ["snackfactory"]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "contactPerson": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 20
+        },
+        "email": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 254
+        },
+        "gstin": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 15
+        },
+        "address": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "orgId",
+        "name",
+        "contactPerson",
+        "phone",
+        "email",
+        "gstin",
+        "address",
+        "state",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Purchase": {
+      "title": "Purchase",
+      "description": "Supplier purchase order header tracking supplier details, invoice reference, GST totals, payment status, and inventory receipt status.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "orgId": {
+          "type": "string",
+          "enum": ["snackfactory"]
+        },
+        "poNumber": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "^[A-Z0-9\\-_]+$"
+        },
+        "supplierId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "supplierName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "supplierGstin": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 15
+        },
+        "purchaseDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "invoiceNumber": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 60
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["Paid", "Partially Paid", "Unpaid"]
+        },
+        "receiptStatus": {
+          "type": "string",
+          "enum": ["Ordered", "Received", "Cancelled"]
+        },
+        "itemCount": {
+          "type": "number"
+        },
+        "subtotal": {
+          "type": "number"
+        },
+        "gstTotal": {
+          "type": "number"
+        },
+        "grandTotal": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 500
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "receivedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "receivedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "orgId",
+        "poNumber",
+        "supplierId",
+        "supplierName",
+        "supplierGstin",
+        "purchaseDate",
+        "invoiceNumber",
+        "paymentStatus",
+        "receiptStatus",
+        "itemCount",
+        "subtotal",
+        "gstTotal",
+        "grandTotal",
+        "notes",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PurchaseItem": {
+      "title": "PurchaseItem",
+      "description": "Raw material line item belonging to a purchase order with quantity, unit price, GST rate, and line totals.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "orgId": {
+          "type": "string",
+          "enum": ["snackfactory"]
+        },
+        "purchaseId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "rawMaterialId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "materialName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "materialCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "^[A-Z0-9\\-_]+$"
+        },
+        "unit": {
+          "type": "string",
+          "enum": ["kg", "litre", "pieces"]
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "unitPrice": {
+          "type": "number"
+        },
+        "gstPercentage": {
+          "type": "number"
+        },
+        "lineSubtotal": {
+          "type": "number"
+        },
+        "lineGst": {
+          "type": "number"
+        },
+        "lineTotal": {
+          "type": "number"
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "orgId",
+        "purchaseId",
+        "rawMaterialId",
+        "materialName",
+        "materialCode",
+        "unit",
+        "quantity",
+        "unitPrice",
+        "gstPercentage",
+        "lineSubtotal",
+        "lineGst",
+        "lineTotal",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Bom": {
+      "title": "Bom",
+      "description": "Versioned Bill of Materials header linking a finished snack product to batch yield and estimated raw material cost.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "orgId": {
+          "type": "string",
+          "enum": ["snackfactory"]
+        },
+        "bomCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "^[A-Z0-9\\-_]+$"
+        },
+        "productId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "productName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "productSku": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "^[A-Z0-9\\-_]+$"
+        },
+        "packetSize": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 30
+        },
+        "version": {
+          "type": "number"
+        },
+        "batchSize": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Active", "Draft", "Archived"]
+        },
+        "itemCount": {
+          "type": "number"
+        },
+        "estimatedMaterialCost": {
+          "type": "number"
+        },
+        "costPerUnit": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 500
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "orgId",
+        "bomCode",
+        "productId",
+        "productName",
+        "productSku",
+        "packetSize",
+        "version",
+        "batchSize",
+        "status",
+        "itemCount",
+        "estimatedMaterialCost",
+        "costPerUnit",
+        "notes",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "BomItem": {
+      "title": "BomItem",
+      "description": "Ingredient or packaging line item belonging to a Bill of Materials with required quantity, unit, and estimated material cost.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "orgId": {
+          "type": "string",
+          "enum": ["snackfactory"]
+        },
+        "bomId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "rawMaterialId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "materialName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "materialCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "^[A-Z0-9\\-_]+$"
+        },
+        "stockUnit": {
+          "type": "string",
+          "enum": ["kg", "litre", "pieces"]
+        },
+        "unit": {
+          "type": "string",
+          "enum": ["kg", "g", "litre", "ml", "pieces"]
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "unitCost": {
+          "type": "number"
+        },
+        "estimatedCost": {
+          "type": "number"
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "orgId",
+        "bomId",
+        "rawMaterialId",
+        "materialName",
+        "materialCode",
+        "stockUnit",
+        "unit",
+        "quantity",
+        "unitCost",
+        "estimatedCost",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ProductionOrder": {
+      "title": "ProductionOrder",
+      "description": "Batch production plan and execution record linking a finished snack product and BOM to raw material issuance, output quantities, and completion lock.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "orderNumber": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "productId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "productSku": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "packetSize": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "bomId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "bomCode": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "bomVersion": { "type": "number" },
+        "bomBatchSize": { "type": "number" },
+        "plannedQuantity": { "type": "number" },
+        "expectedQuantity": { "type": "number" },
+        "actualGoodQuantity": { "type": "number" },
+        "damagedQuantity": { "type": "number" },
+        "productionDate": { "type": "string", "minLength": 10, "maxLength": 10, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "supervisorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "supervisorName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "status": { "type": "string", "enum": ["Planned", "In Progress", "Completed", "Cancelled"] },
+        "materialsIssued": { "type": "boolean" },
+        "finishedGoodsPosted": { "type": "boolean" },
+        "notes": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "issuedBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "issuedAt": { "type": "string", "format": "date-time" },
+        "completedBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "orderNumber", "productId", "productName", "productSku", "packetSize",
+        "bomId", "bomCode", "bomVersion", "bomBatchSize", "plannedQuantity", "expectedQuantity",
+        "actualGoodQuantity", "damagedQuantity", "productionDate", "supervisorUid", "supervisorName",
+        "status", "materialsIssued", "finishedGoodsPosted", "notes", "createdBy", "createdAt", "updatedAt"
+      ]
+    },
+    "ProductionConsumption": {
+      "title": "ProductionConsumption",
+      "description": "Per-material expected, issued, actual consumed, damaged, and variance quantities for a production order.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "productionOrderId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "rawMaterialId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "materialName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "materialCode": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "unit": { "type": "string", "enum": ["kg", "litre", "pieces"] },
+        "expectedQuantity": { "type": "number" },
+        "issuedQuantity": { "type": "number" },
+        "actualConsumedQuantity": { "type": "number" },
+        "damagedMaterialQuantity": { "type": "number" },
+        "varianceQuantity": { "type": "number" },
+        "unitCost": { "type": "number" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "productionOrderId", "rawMaterialId", "materialName", "materialCode", "unit",
+        "expectedQuantity", "issuedQuantity", "actualConsumedQuantity", "damagedMaterialQuantity",
+        "varianceQuantity", "unitCost", "createdBy", "createdAt", "updatedAt"
+      ]
+    },
+    "StockBalance": {
+      "title": "StockBalance",
+      "description": "Real-time categorized stock balance for raw materials, work-in-progress, finished goods, and damaged stock.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "itemId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "itemCode": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "itemName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "stockCategory": { "type": "string", "enum": ["raw_material", "wip", "finished_goods", "damaged"] },
+        "unit": { "type": "string", "enum": ["kg", "litre", "pieces", "packets"] },
+        "openingStock": { "type": "number" },
+        "receivedFromPurchases": { "type": "number" },
+        "issuedToProduction": { "type": "number" },
+        "receivedFromProduction": { "type": "number" },
+        "dispatchedThroughSales": { "type": "number" },
+        "adjustmentsNet": { "type": "number" },
+        "currentBalance": { "type": "number" },
+        "minimumStockLevel": { "type": "number" },
+        "updatedBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "updatedByName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "itemId", "itemCode", "itemName", "stockCategory", "unit",
+        "openingStock", "receivedFromPurchases", "issuedToProduction", "receivedFromProduction",
+        "dispatchedThroughSales", "adjustmentsNet", "currentBalance", "minimumStockLevel",
+        "updatedBy", "updatedByName", "createdAt", "updatedAt"
+      ]
+    },
+    "InventoryLedgerEntry": {
+      "title": "InventoryLedgerEntry",
+      "description": "Immutable append-only inventory movement ledger entry recording quantities in/out, running balance, reference document, and responsible user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "transactionDate": { "type": "string", "minLength": 10, "maxLength": 10, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "itemId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "itemCode": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "itemName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "stockCategory": { "type": "string", "enum": ["raw_material", "wip", "finished_goods", "damaged"] },
+        "unit": { "type": "string", "enum": ["kg", "litre", "pieces", "packets"] },
+        "transactionType": {
+          "type": "string",
+          "enum": [
+            "Opening Stock",
+            "Purchase Receipt",
+            "Production Issue",
+            "Production Return",
+            "Production Extra Consumption",
+            "WIP Issue",
+            "WIP Completion",
+            "Production Output",
+            "Damaged Output",
+            "Sales Dispatch",
+            "Adjustment In",
+            "Adjustment Out"
+          ]
+        },
+        "quantityIn": { "type": "number" },
+        "quantityOut": { "type": "number" },
+        "balance": { "type": "number" },
+        "referenceDoc": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "reason": { "type": "string", "minLength": 0, "maxLength": 300 },
+        "userUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "transactionDate", "itemId", "itemCode", "itemName", "stockCategory",
+        "unit", "transactionType", "quantityIn", "quantityOut", "balance", "referenceDoc",
+        "reason", "userUid", "userName", "createdAt"
+      ]
+    },
+    "ProductionVariance": {
+      "title": "ProductionVariance",
+      "description": "Immutable yield and raw material consumption variance snapshot recorded upon completing a production order.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "productionOrderId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderNumber": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "productId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "productionDate": { "type": "string", "minLength": 10, "maxLength": 10, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "expectedQuantity": { "type": "number" },
+        "actualGoodQuantity": { "type": "number" },
+        "damagedQuantity": { "type": "number" },
+        "yieldVarianceQty": { "type": "number" },
+        "yieldVariancePercent": { "type": "number" },
+        "expectedMaterialCost": { "type": "number" },
+        "actualMaterialCost": { "type": "number" },
+        "materialCostVariance": { "type": "number" },
+        "damagedMaterialQty": { "type": "number" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "productionOrderId", "orderNumber", "productId", "productName",
+        "productionDate", "expectedQuantity", "actualGoodQuantity", "damagedQuantity",
+        "yieldVarianceQty", "yieldVariancePercent", "expectedMaterialCost", "actualMaterialCost",
+        "materialCostVariance", "damagedMaterialQty", "createdBy", "createdAt"
+      ]
+    },
+    "FactorySettings": {
+      "title": "FactorySettings",
+      "description": "Configurable SnackFactory legal name, address, state/stateCode, GSTIN, invoice numbering prefix, and atomic sequence counter.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "factoryName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "factoryAddress": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "factoryState": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "factoryStateCode": { "type": "string", "minLength": 1, "maxLength": 5 },
+        "factoryGstin": { "type": "string", "minLength": 0, "maxLength": 15 },
+        "invoicePrefix": { "type": "string", "minLength": 1, "maxLength": 20, "pattern": "^[A-Z0-9\\-_]+$" },
+        "nextInvoiceSeq": { "type": "number" },
+        "defaultHsnCode": { "type": "string", "minLength": 1, "maxLength": 16, "pattern": "^[0-9A-Za-z]+$" },
+        "updatedBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "factoryName", "factoryAddress", "factoryState", "factoryStateCode",
+        "factoryGstin", "invoicePrefix", "nextInvoiceSeq", "defaultHsnCode",
+        "updatedBy", "createdAt", "updatedAt"
+      ]
+    },
+    "SalesOrder": {
+      "title": "SalesOrder",
+      "description": "Customer sales order header with approval workflow, intra/inter-state GST totals, dispatch progress, and invoice link.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "orderNumber": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "customerGstin": { "type": "string", "minLength": 0, "maxLength": 15 },
+        "customerAddress": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "customerState": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "customerStateCode": { "type": "string", "minLength": 1, "maxLength": 5 },
+        "orderDate": { "type": "string", "minLength": 10, "maxLength": 10, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "expectedDeliveryDate": { "type": "string", "minLength": 10, "maxLength": 10, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "salesmanUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "salesmanName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "status": {
+          "type": "string",
+          "enum": ["Draft", "Pending Approval", "Approved", "Rejected", "Partially Dispatched", "Dispatched", "Cancelled"]
+        },
+        "itemCount": { "type": "number" },
+        "totalOrderedQty": { "type": "number" },
+        "totalDispatchedQty": { "type": "number" },
+        "taxType": { "type": "string", "enum": ["CGST_SGST", "IGST"] },
+        "subtotal": { "type": "number" },
+        "cgstTotal": { "type": "number" },
+        "sgstTotal": { "type": "number" },
+        "igstTotal": { "type": "number" },
+        "gstTotal": { "type": "number" },
+        "grandTotal": { "type": "number" },
+        "invoiceId": { "type": "string", "minLength": 0, "maxLength": 132 },
+        "invoiceNumber": { "type": "string", "minLength": 0, "maxLength": 40 },
+        "notes": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "approverUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "approverName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "approvedAt": { "type": "string", "format": "date-time" },
+        "approvalRemarks": { "type": "string", "minLength": 0, "maxLength": 300 },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "orderNumber", "customerId", "customerName", "customerGstin",
+        "customerAddress", "customerState", "customerStateCode", "orderDate", "expectedDeliveryDate",
+        "salesmanUid", "salesmanName", "status", "itemCount", "totalOrderedQty", "totalDispatchedQty",
+        "taxType", "subtotal", "cgstTotal", "sgstTotal", "igstTotal", "gstTotal", "grandTotal",
+        "invoiceId", "invoiceNumber", "notes", "createdBy", "createdAt", "updatedAt"
+      ]
+    },
+    "SalesOrderItem": {
+      "title": "SalesOrderItem",
+      "description": "Finished snack SKU line item within a customer sales order tracking ordered vs dispatched quantities and GST split.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "salesOrderId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "salesmanUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "productSku": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "packetSize": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "hsnCode": { "type": "string", "minLength": 1, "maxLength": 16, "pattern": "^[0-9A-Za-z]+$" },
+        "quantity": { "type": "number" },
+        "dispatchedQuantity": { "type": "number" },
+        "sellingPrice": { "type": "number" },
+        "gstPercentage": { "type": "number" },
+        "lineSubtotal": { "type": "number" },
+        "cgstAmount": { "type": "number" },
+        "sgstAmount": { "type": "number" },
+        "igstAmount": { "type": "number" },
+        "lineGst": { "type": "number" },
+        "lineTotal": { "type": "number" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "salesOrderId", "salesmanUid", "productId", "productName", "productSku",
+        "packetSize", "hsnCode", "quantity", "dispatchedQuantity", "sellingPrice", "gstPercentage",
+        "lineSubtotal", "cgstAmount", "sgstAmount", "igstAmount", "lineGst", "lineTotal",
+        "createdBy", "createdAt", "updatedAt"
+      ]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "GST tax invoice generated once per approved sales order with CGST/SGST or IGST breakdown and live payment balance.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 132, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "invoiceNumber": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "salesOrderId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderNumber": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "salesmanUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "salesmanName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "invoiceDate": { "type": "string", "minLength": 10, "maxLength": 10, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "factoryName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "factoryAddress": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "factoryState": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "factoryStateCode": { "type": "string", "minLength": 1, "maxLength": 5 },
+        "factoryGstin": { "type": "string", "minLength": 0, "maxLength": 15 },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "customerGstin": { "type": "string", "minLength": 0, "maxLength": 15 },
+        "customerAddress": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "customerState": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "customerStateCode": { "type": "string", "minLength": 1, "maxLength": 5 },
+        "taxType": { "type": "string", "enum": ["CGST_SGST", "IGST"] },
+        "itemCount": { "type": "number" },
+        "subtotal": { "type": "number" },
+        "cgstTotal": { "type": "number" },
+        "sgstTotal": { "type": "number" },
+        "igstTotal": { "type": "number" },
+        "gstTotal": { "type": "number" },
+        "grandTotal": { "type": "number" },
+        "amountPaid": { "type": "number" },
+        "outstandingBalance": { "type": "number" },
+        "paymentStatus": { "type": "string", "enum": ["Paid", "Partially Paid", "Unpaid"] },
+        "notes": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdByName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "invoiceNumber", "salesOrderId", "orderNumber", "salesmanUid", "salesmanName",
+        "invoiceDate", "factoryName", "factoryAddress", "factoryState", "factoryStateCode", "factoryGstin",
+        "customerId", "customerName", "customerGstin", "customerAddress", "customerState", "customerStateCode",
+        "taxType", "itemCount", "subtotal", "cgstTotal", "sgstTotal", "igstTotal", "gstTotal", "grandTotal",
+        "amountPaid", "outstandingBalance", "paymentStatus", "notes", "createdBy", "createdByName",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "InvoiceItem": {
+      "title": "InvoiceItem",
+      "description": "Immutable GST tax invoice line item with HSN code, taxable value, and CGST/SGST/IGST breakdown.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "invoiceId": { "type": "string", "minLength": 1, "maxLength": 132, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "salesOrderId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "salesmanUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "productSku": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "packetSize": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "hsnCode": { "type": "string", "minLength": 1, "maxLength": 16, "pattern": "^[0-9A-Za-z]+$" },
+        "quantity": { "type": "number" },
+        "rate": { "type": "number" },
+        "taxableValue": { "type": "number" },
+        "gstPercentage": { "type": "number" },
+        "cgstAmount": { "type": "number" },
+        "sgstAmount": { "type": "number" },
+        "igstAmount": { "type": "number" },
+        "lineGst": { "type": "number" },
+        "lineTotal": { "type": "number" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "invoiceId", "salesOrderId", "salesmanUid", "productId", "productName",
+        "productSku", "packetSize", "hsnCode", "quantity", "rate", "taxableValue", "gstPercentage",
+        "cgstAmount", "sgstAmount", "igstAmount", "lineGst", "lineTotal", "createdBy", "createdAt"
+      ]
+    },
+    "Dispatch": {
+      "title": "Dispatch",
+      "description": "Immutable shipment dispatch record linked to an approved sales order, vehicle details, and partial-authorization tracking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "dispatchNumber": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "salesOrderId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderNumber": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "salesmanUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "salesmanName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "customerAddress": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "dispatchDate": { "type": "string", "minLength": 10, "maxLength": 10, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "vehicleNumber": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "driverName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "transporterName": { "type": "string", "minLength": 0, "maxLength": 120 },
+        "ewayBillNumber": { "type": "string", "minLength": 0, "maxLength": 40 },
+        "notes": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "isPartial": { "type": "boolean" },
+        "partialAuthorizedBy": { "type": "string", "minLength": 0, "maxLength": 128 },
+        "partialAuthorizedByName": { "type": "string", "minLength": 0, "maxLength": 100 },
+        "itemCount": { "type": "number" },
+        "totalDispatchedQty": { "type": "number" },
+        "dispatchedBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "dispatchedByName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "dispatchNumber", "salesOrderId", "orderNumber", "salesmanUid", "salesmanName",
+        "customerId", "customerName", "customerAddress", "dispatchDate", "vehicleNumber", "driverName",
+        "transporterName", "ewayBillNumber", "notes", "isPartial", "partialAuthorizedBy",
+        "partialAuthorizedByName", "itemCount", "totalDispatchedQty", "dispatchedBy",
+        "dispatchedByName", "createdAt"
+      ]
+    },
+    "DispatchItem": {
+      "title": "DispatchItem",
+      "description": "Immutable finished product quantity line included in a dispatch manifest.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "dispatchId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "salesOrderId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "salesOrderItemId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "salesmanUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "productSku": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "packetSize": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "orderedQuantity": { "type": "number" },
+        "dispatchedQuantity": { "type": "number" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "dispatchId", "salesOrderId", "salesOrderItemId", "salesmanUid",
+        "productId", "productName", "productSku", "packetSize", "orderedQuantity",
+        "dispatchedQuantity", "createdBy", "createdAt"
+      ]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Immutable customer receivable payment linked to a GST tax invoice.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "receiptNumber": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "invoiceId": { "type": "string", "minLength": 1, "maxLength": 132, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "invoiceNumber": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "salesOrderId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderNumber": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "salesmanUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "paymentDate": { "type": "string", "minLength": 10, "maxLength": 10, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "amount": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["UPI", "NEFT/RTGS", "Bank Transfer", "Cheque", "Cash"] },
+        "referenceNumber": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "notes": { "type": "string", "minLength": 0, "maxLength": 300 },
+        "recordedBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "recordedByName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "receiptNumber", "invoiceId", "invoiceNumber", "salesOrderId", "orderNumber",
+        "salesmanUid", "customerId", "customerName", "paymentDate", "amount", "paymentMethod",
+        "referenceNumber", "notes", "recordedBy", "recordedByName", "createdAt"
+      ]
+    },
+    "ProductionCosting": {
+      "title": "ProductionCosting",
+      "description": "Batch manufacturing overhead expenses (labour, gas & electricity, other production expenses) linked 1:1 to a production order.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "productionOrderId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderNumber": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Z0-9\\-_]+$" },
+        "productId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "productionDate": { "type": "string", "minLength": 10, "maxLength": 10, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "labourCost": { "type": "number" },
+        "gasElectricityCost": { "type": "number" },
+        "otherExpenses": { "type": "number" },
+        "notes": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "recordedBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "recordedByName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "productionOrderId", "orderNumber", "productId", "productName", "productionDate",
+        "labourCost", "gasElectricityCost", "otherExpenses", "notes", "recordedBy", "recordedByName",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "AuditLogEntry": {
+      "title": "AuditLogEntry",
+      "description": "Immutable chronological audit trail logging financial, costing, payment, and compliance events.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orgId": { "type": "string", "enum": ["snackfactory"] },
+        "action": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "module": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "recordId": { "type": "string", "minLength": 1, "maxLength": 132 },
+        "recordLabel": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "details": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "userUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "userRole": {
+          "type": "string",
+          "enum": ["Owner", "Admin", "Salesman", "Production Supervisor", "Accountant/Auditor"]
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "orgId", "action", "module", "recordId", "recordLabel", "details",
+        "userUid", "userName", "userRole", "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/system/{docId}": {
+      "schema": {
+        "$ref": "#/entities/SystemBootstrap"
+      },
+      "description": "One-time system bootstrap lock ensuring initial Owner setup cannot be hijacked once initialized."
+    },
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Primary ERP users collection storing username, role assignments, department, status, and timestamps."
+    },
+    "/products/{productId}": {
+      "schema": {
+        "$ref": "#/entities/Product"
+      },
+      "description": "Finished snack product SKUs, packet sizes, prices, GST rates, and status."
+    },
+    "/rawMaterials/{materialId}": {
+      "schema": {
+        "$ref": "#/entities/RawMaterial"
+      },
+      "description": "Raw material master records with stock balances and low-stock thresholds."
+    },
+    "/customers/{customerId}": {
+      "schema": {
+        "$ref": "#/entities/Customer"
+      },
+      "description": "Retailer and Distributor customer records with GSTIN and billing details."
+    },
+    "/suppliers/{supplierId}": {
+      "schema": {
+        "$ref": "#/entities/Supplier"
+      },
+      "description": "Approved raw material supplier records with GSTIN and address."
+    },
+    "/purchases/{purchaseId}": {
+      "schema": {
+        "$ref": "#/entities/Purchase"
+      },
+      "description": "Supplier purchase order headers with subtotal, GST, grand total, payment status, and goods receipt status."
+    },
+    "/purchaseItems/{itemId}": {
+      "schema": {
+        "$ref": "#/entities/PurchaseItem"
+      },
+      "description": "Raw material line items linked to supplier purchase orders."
+    },
+    "/bom/{bomId}": {
+      "schema": {
+        "$ref": "#/entities/Bom"
+      },
+      "description": "Versioned Bill of Materials recipe headers linking finished products and batch material cost estimates."
+    },
+    "/bomItems/{itemId}": {
+      "schema": {
+        "$ref": "#/entities/BomItem"
+      },
+      "description": "Raw material ingredient quantities and units belonging to a Bill of Materials version."
+    },
+    "/productionOrders/{orderId}": {
+      "schema": {
+        "$ref": "#/entities/ProductionOrder"
+      },
+      "description": "Batch production orders tracking planned/expected quantities, good/damaged outputs, and material issuance locks."
+    },
+    "/productionConsumption/{itemId}": {
+      "schema": {
+        "$ref": "#/entities/ProductionConsumption"
+      },
+      "description": "Expected vs. actual raw material consumption and variance per production order."
+    },
+    "/stockBalances/{balanceId}": {
+      "schema": {
+        "$ref": "#/entities/StockBalance"
+      },
+      "description": "Current stock balances across raw materials, WIP, finished goods, and damaged stock."
+    },
+    "/inventoryLedger/{entryId}": {
+      "schema": {
+        "$ref": "#/entities/InventoryLedgerEntry"
+      },
+      "description": "Immutable append-only stock movement ledger recording every inventory change and responsible operator."
+    },
+    "/productionVariances/{varianceId}": {
+      "schema": {
+        "$ref": "#/entities/ProductionVariance"
+      },
+      "description": "Yield and material consumption variance summary documents for completed production runs."
+    },
+    "/settings/{settingId}": {
+      "schema": {
+        "$ref": "#/entities/FactorySettings"
+      },
+      "description": "Configurable factory legal GSTIN, address, state code, and atomic invoice counter."
+    },
+    "/salesOrders/{orderId}": {
+      "schema": {
+        "$ref": "#/entities/SalesOrder"
+      },
+      "description": "Customer sales orders with approval status, GST totals, dispatch fulfillment status, and invoice link."
+    },
+    "/salesOrderItems/{itemId}": {
+      "schema": {
+        "$ref": "#/entities/SalesOrderItem"
+      },
+      "description": "Finished product line items within customer sales orders."
+    },
+    "/invoices/{invoiceId}": {
+      "schema": {
+        "$ref": "#/entities/Invoice"
+      },
+      "description": "GST tax invoices generated atomically once per approved sales order with live payment reconciliation."
+    },
+    "/invoiceItems/{itemId}": {
+      "schema": {
+        "$ref": "#/entities/InvoiceItem"
+      },
+      "description": "Immutable GST tax invoice line items."
+    },
+    "/dispatches/{dispatchId}": {
+      "schema": {
+        "$ref": "#/entities/Dispatch"
+      },
+      "description": "Immutable shipment dispatch documents linked to approved sales orders and vehicles."
+    },
+    "/dispatchItems/{itemId}": {
+      "schema": {
+        "$ref": "#/entities/DispatchItem"
+      },
+      "description": "Immutable product quantities shipped per dispatch manifest."
+    },
+    "/payments/{paymentId}": {
+      "schema": {
+        "$ref": "#/entities/Payment"
+      },
+      "description": "Immutable customer receivable payment receipts linked to GST invoices."
+    },
+    "/productionCostings/{costingId}": {
+      "schema": {
+        "$ref": "#/entities/ProductionCosting"
+      },
+      "description": "Manufacturing overhead expense entries (labour, gas/electricity, other expenses) mapped 1:1 to production orders."
+    },
+    "/auditLogs/{logId}": {
+      "schema": {
+        "$ref": "#/entities/AuditLogEntry"
+      },
+      "description": "Immutable chronological audit trail recording payment, costing, and compliance events."
+    }
+  }
+}

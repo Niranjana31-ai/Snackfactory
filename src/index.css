@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-teal-shell: #3b4f4e;
+  --color-teal-deep: #2c3c3b;
+  --color-ochre: #cf9c2d;
+  --color-ochre-hover: #bc8b22;
+  --color-sage-canvas: #eef3f3;
+  --color-sage-backdrop: #d5e1e2;
+  --color-sage-pill: #e5eded;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: #2c3c3b;
+    background-color: #d5e1e2;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+  }
+}
+
+/* Signature inverted concave curve for the active sidebar tab */
+.sidebar-active-tab {
+  position: relative;
+  background-color: #eef3f3;
+  color: #3b4f4e;
+  border-top-left-radius: 9999px;
+  border-bottom-left-radius: 9999px;
+}
+
+@media (min-width: 1024px) {
+  .sidebar-active-tab::before,
+  .sidebar-active-tab::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    width: 22px;
+    height: 22px;
+    pointer-events: none;
+  }
+
+  .sidebar-active-tab::before {
+    top: -22px;
+    border-bottom-right-radius: 22px;
+    box-shadow: 8px 8px 0 8px #eef3f3;
+    background: transparent;
+  }
+
+  .sidebar-active-tab::after {
+    bottom: -22px;
+    border-top-right-radius: 22px;
+    box-shadow: 8px -8px 0 8px #eef3f3;
+    background: transparent;
+  }
+}
+
+/* Signature ticket notch seam between stacked white ticket rows */
+.ticket-seam {
+  position: relative;
+  border-top: 1.5px dashed #dce6e6;
+}
+
+.ticket-seam::before,
+.ticket-seam::after {
+  content: "";
+  position: absolute;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background-color: #eef3f3;
+  z-index: 2;
+}
+
+.ticket-seam::before {
+  left: -9px;
+}
+
+.ticket-seam::after {
+  right: -9px;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  body,
+  html {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only-sheet {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
